@@ -1,14 +1,11 @@
-// NEW FILE: src/firebase/firebase.js
-// Import the functions you need from the SDKs you need
+// src/firebase/firebase.js
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Only import analytics if needed, and handle it conditionally
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBgY1-NA5rfmWvoK9O2x8cLzHTfywBDLDE",
   authDomain: "schedule-creator-pb.firebaseapp.com",
@@ -21,8 +18,14 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Initialize Analytics conditionally
+let analytics = null;
+isSupported().then(yes => {
+  if (yes) analytics = getAnalytics(app);
+}).catch(e => console.error("Analytics error:", e));
+
 export { auth, db, analytics };
+export default app;
