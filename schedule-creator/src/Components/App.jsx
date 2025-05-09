@@ -1,6 +1,6 @@
-import Schedule from './Components/Schedule.jsx'
-import Nav from './Components/Nav.jsx'
-import Creator from './Components/Creator.jsx'
+import Schedule from './Schedule.jsx'
+import Nav from './Nav.jsx'
+import Creator from './Creator.jsx'
 
 import './App.css'
 

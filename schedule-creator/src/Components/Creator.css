@@ -393,3 +393,24 @@
     border-radius: 4px;
     font-size: 14px;
   }
+  .modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-top: 1px solid #eee;
+  }
+  
+  .remove-worker-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .remove-worker-button:hover {
+    background-color: #d32f2f;
+  }
