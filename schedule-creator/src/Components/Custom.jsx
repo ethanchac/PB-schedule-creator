@@ -4,7 +4,6 @@ import './Custom.css'
 function Custom(){
     return(
         <>
-            <Nav />
             <h2>yo</h2>
         </>
     )

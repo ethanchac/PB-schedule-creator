@@ -1,5 +1,6 @@
 import { Route, Routes, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from "./Components/Layout";
 import App from "./Components/App.jsx";
 import Custom from "./Components/Custom.jsx";
 import Login from './Components/Login';
@@ -13,7 +14,7 @@ const PrivateRoute = ({ children }) => {
     return <Navigate to="/login" />;
   }
   
-  return children;
+  return <Layout>{children}</Layout>;
 };
 
 function AppRoutes() {
@@ -22,7 +23,14 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/custom" element={<Custom />} />
+        <Route 
+          path="/custom" 
+          element={
+            <PrivateRoute>
+              <Custom />
+            </PrivateRoute>
+          } 
+        />
         <Route 
           path="/" 
           element={

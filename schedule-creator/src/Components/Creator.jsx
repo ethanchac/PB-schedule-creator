@@ -18,6 +18,8 @@ function Creator() {
     const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
     const [showCustomWorkers, setShowCustomWorkers] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [debugMode, setDebugMode] = useState(true); // Set to true for debugging
     const { currentUser } = useAuth();
     const [settings, setSettings] = useState({
       minWorkersPerShift: 1,
@@ -54,7 +56,9 @@ function Creator() {
         if (currentUser) {
           try {
             setLoading(true);
+            console.log("Loading people data for user:", currentUser.uid);
             const peopleData = await getPeople(currentUser.uid);
+            console.log("Data loaded successfully:", peopleData);
             setStaff(peopleData);
             
             // Load settings from Firebase if you want to persist them
@@ -62,9 +66,13 @@ function Creator() {
             
           } catch (error) {
             console.error("Error loading data:", error);
+            alert(`Error loading data: ${error.message || 'Unknown error'}`);
           } finally {
             setLoading(false);
           }
+        } else {
+          console.warn("No current user found - authentication may be required");
+          setLoading(false);
         }
       }
       
@@ -229,6 +237,9 @@ function Creator() {
   
     // Handle saving the worker
     const handleSaveWorker = async () => {
+      console.log("Save button clicked");
+      
+      // Input validation
       if (!currentWorker.name.trim()) {
         alert('Please enter a worker name');
         return;
@@ -241,22 +252,90 @@ function Creator() {
         return;
       }
       
+      // Authentication check
+      if (!currentUser) {
+        alert("You need to be logged in to save workers.");
+        return;
+      }
+      
+      // Set saving state to show UI feedback
+      setIsSaving(true);
+      
       try {
+        console.log("Creating new worker object");
+        // Ensure ID is a string
+        const workerId = currentWorker.id || Date.now().toString();
+        
         const newWorker = {
           ...currentWorker,
-          id: currentWorker.id || Date.now(), // Use timestamp as a simple unique ID if new worker
+          id: workerId,
+          // Make sure to include timestamps for tracking
+          createdAt: currentWorker.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         
-        // Save worker to Firebase
-        await savePerson(currentUser.uid, newWorker);
+        console.log("Worker to save:", newWorker);
+        console.log("User ID:", currentUser.uid);
         
-        setStaff([...staff, newWorker]);
+        // Save worker to Firebase - with timeout handling
+        console.log("Attempting to save to Firebase...");
+        
+        // Create a timeout promise to catch hanging requests
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Save operation timed out. The database might be unavailable.")), 10000);
+        });
+        
+        // Race the save operation against the timeout
+        const result = await Promise.race([
+          savePerson(currentUser.uid, newWorker),
+          timeoutPromise
+        ]);
+        
+        console.log("Firebase save result:", result);
+        
+        // To be extra safe, verify the save worked by trying to retrieve the worker
+        try {
+          const updatedPeople = await getPeople(currentUser.uid);
+          const savedWorker = updatedPeople.find(w => w.id === workerId);
+          
+          if (!savedWorker) {
+            throw new Error("Worker was saved but couldn't be verified in the database. Refresh the page to check if it was saved.");
+          }
+          
+          // Update the staff list with the verified data
+          setStaff(updatedPeople);
+        } catch (verifyError) {
+          console.error("Error verifying save:", verifyError);
+          // Still update the local state even if verification failed
+          setStaff(prevStaff => [...prevStaff, newWorker]);
+        }
+        
+        // Close the modal
         setShowModal(false);
         
+        // Show success message
+        alert('Worker saved successfully!');
         console.log('Saved worker to database:', newWorker.name);
       } catch (error) {
         console.error('Error saving worker:', error);
-        alert('Failed to save worker. Please try again.');
+        
+        // Enhanced error handling with specific messages
+        let errorMessage = "Failed to save worker. ";
+        
+        if (error.code === 'permission-denied') {
+          errorMessage += "You don't have permission to save data. Please check your account permissions.";
+        } else if (error.message && error.message.includes('timeout')) {
+          errorMessage += "The operation timed out. Please check your internet connection and try again.";
+        } else if (error.message && error.message.includes('network')) {
+          errorMessage += "Network error. Please check your internet connection and try again.";
+        } else {
+          errorMessage += "Error: " + (error.message || 'Unknown error');
+        }
+        
+        alert(errorMessage);
+      } finally {
+        // Always reset the saving state
+        setIsSaving(false);
       }
     };
   
@@ -274,7 +353,7 @@ function Creator() {
         await savePerson(currentUser.uid, currentWorker);
         
         // Update worker in the staff array
-        setStaff(staff.map(worker => 
+        setStaff(prevStaff => prevStaff.map(worker => 
           worker.id === currentWorker.id ? currentWorker : worker
         ));
         
@@ -282,7 +361,7 @@ function Creator() {
         console.log('Updated availability for:', currentWorker.name);
       } catch (error) {
         console.error('Error updating worker:', error);
-        alert('Failed to update worker. Please try again.');
+        alert('Failed to update worker. Please try again. Error: ' + error.message);
       }
     };
     
@@ -294,12 +373,12 @@ function Creator() {
           await deletePerson(currentUser.uid, currentWorker.id);
           
           // Remove worker from staff array
-          setStaff(staff.filter(worker => worker.id !== currentWorker.id));
+          setStaff(prevStaff => prevStaff.filter(worker => worker.id !== currentWorker.id));
           setShowAvailabilityModal(false);
           console.log('Removed worker:', currentWorker.name);
         } catch (error) {
           console.error('Error removing worker:', error);
-          alert('Failed to remove worker. Please try again.');
+          alert('Failed to remove worker. Please try again. Error: ' + error.message);
         }
       }
     };
@@ -320,9 +399,46 @@ function Creator() {
     // Business hours array (5 AM to 10 PM)
     const businessHours = Array.from({ length: 18 }, (_, i) => i + 5);
   
-    if (loading) {
-      return <div className="loading">Loading...</div>;
-    }
+    // Debug information component
+  const DebugInfo = () => {
+    if (!debugMode) return null;
+    
+    return (
+      <div className="debug-panel" style={{ 
+        position: 'fixed', 
+        bottom: '10px', 
+        right: '10px', 
+        backgroundColor: '#f0f0f0', 
+        padding: '10px', 
+        border: '1px solid #ccc',
+        borderRadius: '5px',
+        zIndex: 1000,
+        maxWidth: '300px',
+        maxHeight: '200px',
+        overflow: 'auto'
+      }}>
+        <h4 style={{ margin: '0 0 5px 0' }}>Debug Info</h4>
+        <p style={{ margin: '0 0 5px 0' }}><strong>Auth:</strong> {currentUser ? `Logged in (${currentUser.uid.substring(0, 6)}...)` : 'Not logged in'}</p>
+        <p style={{ margin: '0 0 5px 0' }}><strong>Staff Count:</strong> {staff.length}</p>
+        <p style={{ margin: '0' }}><strong>Status:</strong> {loading ? 'Loading' : isSaving ? 'Saving' : 'Ready'}</p>
+        <button 
+          onClick={() => setDebugMode(false)} 
+          style={{ marginTop: '5px', padding: '2px 5px', fontSize: '12px' }}
+        >
+          Hide Debug
+        </button>
+      </div>
+    );
+  };
+  
+  if (loading) {
+    return (
+      <div>
+        <div className="loading">Loading...</div>
+        <DebugInfo />
+      </div>
+    );
+  }
 
     return (
       <div className="creator-container">
@@ -341,25 +457,46 @@ function Creator() {
           </button>
         </div>
   
+        {/* Show status messages */}
+        {isSaving && (
+          <div className="status-message saving">
+            Saving... Please wait.
+          </div>
+        )}
+  
         <div className="staff-list">
-          {staff.map(person => (
-            <div key={person.id} className="staff-item">
-              <div className="staff-name">{person.name}</div>
-              <button 
-                className="availability-button"
-                onClick={() => handleEditAvailability(person)}
-              >
-                Availability
-              </button>
+          {staff.length > 0 ? (
+            staff.map(person => (
+              <div key={person.id} className="staff-item">
+                <div className="staff-name">{person.name}</div>
+                <button 
+                  className="availability-button"
+                  onClick={() => handleEditAvailability(person)}
+                >
+                  Availability
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="no-staff-message">
+              No workers added yet. Click the + button to add a worker.
             </div>
-          ))}
+          )}
         </div>
   
         <div className="creator-footer">
-          <button className="generate-button" onClick={handleGenerateSchedule}>
+          <button 
+            className="generate-button" 
+            onClick={handleGenerateSchedule}
+            disabled={staff.length === 0}
+          >
             Generate Schedule
           </button>
         </div>
+
+        {/* Add the debug info component */}
+        <DebugInfo />
+  
   
         {/* Worker Modal */}
         {showModal && (
@@ -443,8 +580,20 @@ function Creator() {
               </div>
               
               <div className="modal-footer">
-                <button className="cancel-button" onClick={() => setShowModal(false)}>Cancel</button>
-                <button className="save-button" onClick={handleSaveWorker}>Save</button>
+                <button 
+                  className="cancel-button" 
+                  onClick={() => setShowModal(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="save-button" 
+                  onClick={handleSaveWorker}
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
               </div>
             </div>
           </div>

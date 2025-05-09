@@ -1,10 +1,11 @@
 // MODIFY: src/components/Nav.jsx
 import { useState } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.png'; // Import the logo
+import './Nav.css';
 
 function Nav() {
-  const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState('');
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -20,33 +21,28 @@ function Nav() {
     }
   }
 
-  const toggleDropdown = () => {
-    setShowDropdown(!showDropdown);
-  };
-
   return (
-    <nav className="nav-container">
-      <div className="nav-logo">PB Schedule Creator</div>
-      <div className="nav-menu">
-        <div className="nav-item" onClick={toggleDropdown}>
-          Account
-          {showDropdown && (
-            <div className="dropdown-menu">
-              {/* Keep existing dropdown content */}
-              {currentUser && (
-                <>
-                  <div className="dropdown-item">
-                    {currentUser.email}
-                  </div>
-                  <div className="dropdown-item" onClick={handleLogout}>
-                    Log Out
-                  </div>
-                </>
-              )}
-              {error && <div className="error-text">{error}</div>}
-            </div>
-          )}
+    <nav className="navbar">
+      <div className="nav-left">
+        <Link to="/">
+          <img src={logo} alt="Logo" className="nav-logo" />
+        </Link>
+        <div className="nav-links">
+          <Link to="/" className="nav-link">Home</Link>
+          <Link to="/custom" className="nav-link">Custom</Link>
         </div>
+      </div>
+      
+      <div className="nav-right">
+        {currentUser && (
+          <>
+            <span className="user-email">{currentUser.email}</span>
+            <button className="logout-button" onClick={handleLogout}>
+              Log Out
+            </button>
+          </>
+        )}
+        {error && <div className="error-text">{error}</div>}
       </div>
     </nav>
   );
