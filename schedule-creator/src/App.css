@@ -1,0 +1,20 @@
+body{
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+.main{
+  display: flex;
+  min-height: 90vh;
+}
+
+.main-left {
+  width: 60%;
+  min-height: 100px;
+}
+
+.main-right{
+  width: 40%;
+  min-height: 100px;
+}
