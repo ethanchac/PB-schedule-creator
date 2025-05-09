@@ -1,12 +1,24 @@
+// MODIFY: src/components/Creator.jsx
 import {useState, useEffect} from 'react';
-import './Creator.css'
+import './Creator.css';
+import { useAuth } from '../contexts/AuthContext';
+import { 
+  savePerson, 
+  deletePerson,
+  getPeople,
+  saveAvailability,
+  getAllAvailability,
+  deleteAvailability
+} from '../services/databaseService';
 
 function Creator() {
     const [staff, setStaff] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [showAvailabilityModal, setShowAvailabilityModal] = useState(false); // New state for availability modal
+    const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
     const [showCustomWorkers, setShowCustomWorkers] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const { currentUser } = useAuth();
     const [settings, setSettings] = useState({
       minWorkersPerShift: 1,
       maxWorkersTotal: 10,
@@ -35,6 +47,29 @@ function Creator() {
         6: { available: false, allDay: false, hours: [] }  // Saturday
       }
     });
+    
+    // Load data from Firebase when component mounts
+    useEffect(() => {
+      async function loadData() {
+        if (currentUser) {
+          try {
+            setLoading(true);
+            const peopleData = await getPeople(currentUser.uid);
+            setStaff(peopleData);
+            
+            // Load settings from Firebase if you want to persist them
+            // This would require adding a settings service to databaseService.js
+            
+          } catch (error) {
+            console.error("Error loading data:", error);
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+      
+      loadData();
+    }, [currentUser]);
     
     // Add this useEffect after your other state and function declarations
     useEffect(() => {
@@ -93,6 +128,9 @@ function Creator() {
     const handleSaveSettings = () => {
       console.log('Saved settings:', settings);
       setShowSettingsModal(false);
+      
+      // Optional: Save settings to Firebase
+      // This would require adding a settings service to databaseService.js
     };
     
     // Open availability modal instead of toggling
@@ -190,7 +228,7 @@ function Creator() {
     };
   
     // Handle saving the worker
-    const handleSaveWorker = () => {
+    const handleSaveWorker = async () => {
       if (!currentWorker.name.trim()) {
         alert('Please enter a worker name');
         return;
@@ -203,17 +241,27 @@ function Creator() {
         return;
       }
       
-      const newWorker = {
-        ...currentWorker,
-        id: currentWorker.id || Date.now(), // Use timestamp as a simple unique ID if new worker
-      };
-      
-      setStaff([...staff, newWorker]);
-      setShowModal(false);
+      try {
+        const newWorker = {
+          ...currentWorker,
+          id: currentWorker.id || Date.now(), // Use timestamp as a simple unique ID if new worker
+        };
+        
+        // Save worker to Firebase
+        await savePerson(currentUser.uid, newWorker);
+        
+        setStaff([...staff, newWorker]);
+        setShowModal(false);
+        
+        console.log('Saved worker to database:', newWorker.name);
+      } catch (error) {
+        console.error('Error saving worker:', error);
+        alert('Failed to save worker. Please try again.');
+      }
     };
   
     // Handle saving the worker's updated availability
-    const handleSaveAvailability = () => {
+    const handleSaveAvailability = async () => {
       // Check if at least one day is marked as available
       const hasAvailableDays = Object.values(currentWorker.availability).some(day => day.available);
       if (!hasAvailableDays) {
@@ -221,22 +269,38 @@ function Creator() {
         return;
       }
       
-      // Update worker in the staff array
-      setStaff(staff.map(worker => 
-        worker.id === currentWorker.id ? currentWorker : worker
-      ));
-      
-      setShowAvailabilityModal(false);
-      console.log('Updated availability for:', currentWorker.name);
+      try {
+        // Update worker in Firebase
+        await savePerson(currentUser.uid, currentWorker);
+        
+        // Update worker in the staff array
+        setStaff(staff.map(worker => 
+          worker.id === currentWorker.id ? currentWorker : worker
+        ));
+        
+        setShowAvailabilityModal(false);
+        console.log('Updated availability for:', currentWorker.name);
+      } catch (error) {
+        console.error('Error updating worker:', error);
+        alert('Failed to update worker. Please try again.');
+      }
     };
     
     // Handle removing a worker
-    const handleRemoveWorker = () => {
+    const handleRemoveWorker = async () => {
       if (confirm(`Are you sure you want to remove ${currentWorker.name}?`)) {
-        // Remove worker from staff array
-        setStaff(staff.filter(worker => worker.id !== currentWorker.id));
-        setShowAvailabilityModal(false);
-        console.log('Removed worker:', currentWorker.name);
+        try {
+          // Remove worker from Firebase
+          await deletePerson(currentUser.uid, currentWorker.id);
+          
+          // Remove worker from staff array
+          setStaff(staff.filter(worker => worker.id !== currentWorker.id));
+          setShowAvailabilityModal(false);
+          console.log('Removed worker:', currentWorker.name);
+        } catch (error) {
+          console.error('Error removing worker:', error);
+          alert('Failed to remove worker. Please try again.');
+        }
       }
     };
   
@@ -256,6 +320,10 @@ function Creator() {
     // Business hours array (5 AM to 10 PM)
     const businessHours = Array.from({ length: 18 }, (_, i) => i + 5);
   
+    if (loading) {
+      return <div className="loading">Loading...</div>;
+    }
+
     return (
       <div className="creator-container">
         <div className="creator-header">
