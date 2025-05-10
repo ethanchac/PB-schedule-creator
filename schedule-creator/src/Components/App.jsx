@@ -6,7 +6,6 @@ import Creator from "./Creator";
 
 function App() {
   return (
-    
     <div className="main-container">
       <div className="left-panel">
         <Schedule />

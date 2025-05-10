@@ -1,8 +1,9 @@
 // src/components/Signup.js
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import logo from '../assets/logo.png'; // Import your Paris Baguette logo
+import './Signup.css'; // Import the custom CSS
 
 const Signup = () => {
   const emailRef = useRef();
@@ -11,13 +12,52 @@ const Signup = () => {
   const { signup } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const navigate = useNavigate();
+  
+  // Password validation states
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    hasNumber: false,
+    hasSpecial: false,
+    match: false
+  });
+
+  // Check password requirements in real-time
+  useEffect(() => {
+    const password = passwordRef.current?.value || '';
+    const confirmPassword = passwordConfirmRef.current?.value || '';
+    
+    setPasswordValidation({
+      length: password.length >= 8,
+      hasNumber: /\d/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      match: password === confirmPassword && password !== ''
+    });
+  }, [loading]); // This will update after form submission attempts
+
+  // Update validation on password change
+  const handlePasswordChange = () => {
+    const password = passwordRef.current.value;
+    const confirmPassword = passwordConfirmRef.current.value;
+    
+    setPasswordValidation({
+      length: password.length >= 8,
+      hasNumber: /\d/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      match: password === confirmPassword && password !== ''
+    });
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
 
     if (passwordRef.current.value !== passwordConfirmRef.current.value) {
       return setError('Passwords do not match');
+    }
+    
+    if (!agreeToTerms) {
+      return setError('You must agree to the Terms of Service');
     }
 
     try {
@@ -33,66 +73,134 @@ const Signup = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create an account</h2>
+    <div className="signup-container">
+      <div className="signup-card">
+        <div className="signup-header">
+          <img src={logo} alt="Paris Baguette" className="signup-logo" />
+          <h2>Create an Account</h2>
+          <p>Join us to start managing your schedule</p>
         </div>
-        {error && <div className="text-red-500 text-center">{error}</div>}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">Email address</label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                ref={emailRef}
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
+        
+        {error && (
+          <div className="error-message">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            {error}
+          </div>
+        )}
+        
+        <form className="signup-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email-address">Email address</label>
+            <input
+              id="email-address"
+              name="email"
+              type="email"
+              ref={emailRef}
+              required
+              className="form-input"
+              placeholder="Enter your email"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              ref={passwordRef}
+              required
+              className="form-input"
+              placeholder="Create a password"
+              onChange={handlePasswordChange}
+            />
+            
+            <div className="password-requirements">
+              <div className={`requirement ${passwordValidation.length ? 'valid' : ''}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {passwordValidation.length 
+                    ? <path d="M20 6L9 17l-5-5"></path> 
+                    : <path d="M18 6L6 18M6 6l12 12"></path>}
+                </svg>
+                At least 8 characters
+              </div>
+              <div className={`requirement ${passwordValidation.hasNumber ? 'valid' : ''}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {passwordValidation.hasNumber 
+                    ? <path d="M20 6L9 17l-5-5"></path> 
+                    : <path d="M18 6L6 18M6 6l12 12"></path>}
+                </svg>
+                At least 1 number
+              </div>
+              <div className={`requirement ${passwordValidation.hasSpecial ? 'valid' : ''}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {passwordValidation.hasSpecial 
+                    ? <path d="M20 6L9 17l-5-5"></path> 
+                    : <path d="M18 6L6 18M6 6l12 12"></path>}
+                </svg>
+                At least 1 special character
+              </div>
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                ref={passwordRef}
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password-confirm">Confirm Password</label>
+            <input
+              id="password-confirm"
+              name="password-confirm"
+              type="password"
+              ref={passwordConfirmRef}
+              required
+              className="form-input"
+              placeholder="Confirm your password"
+              onChange={handlePasswordChange}
+            />
+            
+            <div className={`requirement ${passwordValidation.match ? 'valid' : ''}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {passwordValidation.match 
+                  ? <path d="M20 6L9 17l-5-5"></path> 
+                  : <path d="M18 6L6 18M6 6l12 12"></path>}
+              </svg>
+              Passwords match
             </div>
-            <div>
-              <label htmlFor="password-confirm" className="sr-only">Confirm Password</label>
-              <input
-                id="password-confirm"
-                name="password-confirm"
-                type="password"
-                ref={passwordConfirmRef}
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
-              />
-            </div>
+          </div>
+          
+          <div className="terms-checkbox">
+            <input
+              type="checkbox"
+              id="terms"
+              checked={agreeToTerms}
+              onChange={(e) => setAgreeToTerms(e.target.checked)}
+            />
+            <label htmlFor="terms">
+              I agree to the <a href="#terms">Terms of Service</a> and <a href="#privacy">Privacy Policy</a>
+            </label>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign Up
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="signup-button"
+          >
+            {loading ? (
+              <>
+                <span className="loading-spinner"></span>
+                Creating Account...
+              </>
+            ) : (
+              'Create Account'
+            )}
+          </button>
         </form>
-        <div className="text-center">
-          <div className="text-sm">
-            Already have an account? <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">Log In</Link>
-          </div>
+        
+        <div className="login-link">
+          Already have an account?
+          <Link to="/login">Sign in</Link>
         </div>
       </div>
     </div>
