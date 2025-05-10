@@ -1,6 +1,5 @@
-/* Signup.css - Matching the login page styling */
+/* Signup.css - Fixed scrolling issues */
 
-/* Import Quicksand font if not already imported globally */
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
 
 .signup-container {
@@ -11,6 +10,9 @@
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 2rem;
   font-family: 'Quicksand', sans-serif;
+  /* Add these properties to ensure scrolling works */
+  overflow-y: auto;
+  position: relative;
 }
 
 .signup-card {
@@ -21,6 +23,10 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   padding: 2.5rem;
   transition: transform 0.3s ease;
+  /* Make sure the card can be scrollable when needed */
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 2rem auto;
 }
 
 .signup-card:hover {
@@ -196,6 +202,8 @@
 @media (max-width: 640px) {
   .signup-card {
     padding: 1.5rem;
+    margin: 1rem;
+    max-height: 85vh; /* Slightly smaller on mobile */
   }
   
   .signup-header h2 {
@@ -228,4 +236,12 @@
 
 .terms-checkbox a:hover {
   text-decoration: underline;
+}
+
+/* Additional fix for body/html to ensure scrolling works properly */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
 }
