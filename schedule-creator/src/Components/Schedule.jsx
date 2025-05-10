@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './Schedule.css';
+import './Schedule.css'; // We'll create this CSS file next
 
 function Schedule() {
   const [currDay, setCurrDay] = useState(null);
@@ -85,13 +85,11 @@ function Schedule() {
       <div className="schedule-grid">
         <div className="time-column">
           <div className="day-header">EST</div>
-          <div className="time-cells-container">
-            {hours.map((hour, index) => (
-              <div key={`hour-${index}`} className="time-cell">
-                {getHourLabel(hour)}
-              </div>
-            ))}
-          </div>
+          {hours.map((hour, index) => (
+            <div key={`hour-${index}`} className="time-cell">
+              {getHourLabel(hour)}
+            </div>
+          ))}
         </div>
         
         {currentWeek.map((day, dayIndex) => (
@@ -101,11 +99,9 @@ function Schedule() {
               <div className="day-number">{day.getDate()}</div>
             </div>
             
-            <div className="day-cells-container">
-              {hours.map((hour, hourIndex) => (
-                <div key={`cell-${dayIndex}-${hourIndex}`} className="calendar-cell"></div>
-              ))}
-            </div>
+            {hours.map((hour, hourIndex) => (
+              <div key={`cell-${dayIndex}-${hourIndex}`} className="calendar-cell"></div>
+            ))}
           </div>
         ))}
       </div>
