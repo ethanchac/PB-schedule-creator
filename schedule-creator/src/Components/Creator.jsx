@@ -10,6 +10,7 @@ import {
   getAllAvailability,
   deleteAvailability
 } from '../services/databaseService';
+import Popup from './Popup';
 
 function Creator() {
     const [staff, setStaff] = useState([]);
@@ -19,7 +20,6 @@ function Creator() {
     const [showCustomWorkers, setShowCustomWorkers] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [debugMode, setDebugMode] = useState(true); // Set to true for debugging
     const { currentUser } = useAuth();
     const [settings, setSettings] = useState({
       minWorkersPerShift: 1,
@@ -79,35 +79,6 @@ function Creator() {
       loadData();
     }, [currentUser]);
     
-    // Add this useEffect after your other state and function declarations
-    useEffect(() => {
-      if (staff.length > 0) {
-        console.log('Current staff and their availability:');
-        staff.forEach(worker => {
-          console.log(`Worker: ${worker.name}`);
-          console.log(`Max days: ${worker.maxDays}`);
-          console.log('Availability:');
-          
-          Object.entries(worker.availability).forEach(([day, dayData]) => {
-            const dayName = getDayName(parseInt(day));
-            if (dayData.available) {
-              if (dayData.allDay) {
-                console.log(`  ${dayName}: Available all day`);
-              } else {
-                const formattedHours = dayData.hours
-                  .map(hour => formatHour(hour))
-                  .join(', ');
-                console.log(`  ${dayName}: Available at ${formattedHours}`);
-              }
-            } else {
-              console.log(`  ${dayName}: Not available`);
-            }
-          });
-          console.log('------------------------');
-        });
-      }
-    }, [staff]);
-    
     // Handle opening settings modal
     const handleOpenSettings = () => {
       setShowSettingsModal(true);
@@ -141,7 +112,7 @@ function Creator() {
       // This would require adding a settings service to databaseService.js
     };
     
-    // Open availability modal instead of toggling
+    // Open availability modal with selected worker
     const handleEditAvailability = (worker) => {
       setCurrentWorker({...worker});
       setShowAvailabilityModal(true);
@@ -170,7 +141,7 @@ function Creator() {
       setShowModal(true);
     };
   
-    // Toggle availability for a specific day
+    // Toggle availability for a specific day - used in add worker modal
     const toggleDayAvailability = (day) => {
       setCurrentWorker({
         ...currentWorker,
@@ -187,7 +158,7 @@ function Creator() {
       });
     };
   
-    // Toggle "all day" availability for a specific day
+    // Toggle "all day" availability for a specific day - used in add worker modal
     const toggleAllDay = (day) => {
       const businessHours = [];
       // Store hours from 5 AM to 10 PM
@@ -208,7 +179,7 @@ function Creator() {
       });
     };
   
-    // Toggle specific hour availability for a day
+    // Toggle specific hour availability for a day - used in add worker modal
     const toggleHourAvailability = (day, hour) => {
       const hours = [...currentWorker.availability[day].hours];
       const hourIndex = hours.indexOf(hour);
@@ -339,26 +310,25 @@ function Creator() {
       }
     };
   
-    // Handle saving the worker's updated availability
-    const handleSaveAvailability = async () => {
-      // Check if at least one day is marked as available
-      const hasAvailableDays = Object.values(currentWorker.availability).some(day => day.available);
-      if (!hasAvailableDays) {
-        alert('Please select at least one available day');
-        return;
-      }
-      
+    // Handle saving worker availability from the ImprovedAvailabilitySelector component
+    const handleSaveAvailability = async (updatedWorker) => {
       try {
+        // Add timestamp
+        const workerToSave = {
+          ...updatedWorker,
+          updatedAt: new Date().toISOString()
+        };
+        
         // Update worker in Firebase
-        await savePerson(currentUser.uid, currentWorker);
+        await savePerson(currentUser.uid, workerToSave);
         
         // Update worker in the staff array
         setStaff(prevStaff => prevStaff.map(worker => 
-          worker.id === currentWorker.id ? currentWorker : worker
+          worker.id === workerToSave.id ? workerToSave : worker
         ));
         
         setShowAvailabilityModal(false);
-        console.log('Updated availability for:', currentWorker.name);
+        console.log('Updated availability for:', workerToSave.name);
       } catch (error) {
         console.error('Error updating worker:', error);
         alert('Failed to update worker. Please try again. Error: ' + error.message);
@@ -366,16 +336,16 @@ function Creator() {
     };
     
     // Handle removing a worker
-    const handleRemoveWorker = async () => {
-      if (confirm(`Are you sure you want to remove ${currentWorker.name}?`)) {
+    const handleRemoveWorker = async (workerToRemove) => {
+      if (confirm(`Are you sure you want to remove ${workerToRemove.name}?`)) {
         try {
           // Remove worker from Firebase
-          await deletePerson(currentUser.uid, currentWorker.id);
+          await deletePerson(currentUser.uid, workerToRemove.id);
           
           // Remove worker from staff array
-          setStaff(prevStaff => prevStaff.filter(worker => worker.id !== currentWorker.id));
+          setStaff(prevStaff => prevStaff.filter(worker => worker.id !== workerToRemove.id));
           setShowAvailabilityModal(false);
-          console.log('Removed worker:', currentWorker.name);
+          console.log('Removed worker:', workerToRemove.name);
         } catch (error) {
           console.error('Error removing worker:', error);
           alert('Failed to remove worker. Please try again. Error: ' + error.message);
@@ -395,50 +365,12 @@ function Creator() {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       return days[dayIndex];
     };
-  
-    // Business hours array (5 AM to 10 PM)
-    const businessHours = Array.from({ length: 18 }, (_, i) => i + 5);
-  
-    // Debug information component
-  const DebugInfo = () => {
-    if (!debugMode) return null;
-    
-    return (
-      <div className="debug-panel" style={{ 
-        position: 'fixed', 
-        bottom: '10px', 
-        right: '10px', 
-        backgroundColor: '#f0f0f0', 
-        padding: '10px', 
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-        zIndex: 1000,
-        maxWidth: '300px',
-        maxHeight: '200px',
-        overflow: 'auto'
-      }}>
-        <h4 style={{ margin: '0 0 5px 0' }}>Debug Info</h4>
-        <p style={{ margin: '0 0 5px 0' }}><strong>Auth:</strong> {currentUser ? `Logged in (${currentUser.uid.substring(0, 6)}...)` : 'Not logged in'}</p>
-        <p style={{ margin: '0 0 5px 0' }}><strong>Staff Count:</strong> {staff.length}</p>
-        <p style={{ margin: '0' }}><strong>Status:</strong> {loading ? 'Loading' : isSaving ? 'Saving' : 'Ready'}</p>
-        <button 
-          onClick={() => setDebugMode(false)} 
-          style={{ marginTop: '5px', padding: '2px 5px', fontSize: '12px' }}
-        >
-          Hide Debug
-        </button>
-      </div>
-    );
-  };
-  
-  if (loading) {
-    return (
-      <div>
+
+    if (loading) {
+      return (
         <div className="loading">Loading...</div>
-        <DebugInfo />
-      </div>
-    );
-  }
+      );
+    }
 
     return (
       <div className="creator-container">
@@ -493,10 +425,6 @@ function Creator() {
             Generate Schedule
           </button>
         </div>
-
-        {/* Add the debug info component */}
-        <DebugInfo />
-  
   
         {/* Worker Modal */}
         {showModal && (
@@ -563,7 +491,7 @@ function Creator() {
                       
                       {currentWorker.availability[day].available && !currentWorker.availability[day].allDay && (
                         <div className="hours-container">
-                          {businessHours.map(hour => (
+                          {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map(hour => (
                             <div 
                               key={hour} 
                               className={`hour-checkbox ${currentWorker.availability[day].hours.includes(hour) ? 'selected' : ''}`}
@@ -599,7 +527,7 @@ function Creator() {
           </div>
         )}
   
-        {/* Availability Edit Modal */}
+        {/* Availability Edit Modal - Using the Popup component */}
         {showAvailabilityModal && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -608,74 +536,14 @@ function Creator() {
                 <button className="close-button" onClick={() => setShowAvailabilityModal(false)}>×</button>
               </div>
               
-              <div className="modal-body">
-                <div className="form-group">
-                  <label htmlFor="editMaxDays">Maximum Days to Work:</label>
-                  <input 
-                    type="number" 
-                    id="editMaxDays" 
-                    min="1" 
-                    max="7" 
-                    value={currentWorker.maxDays} 
-                    onChange={(e) => setCurrentWorker({...currentWorker, maxDays: parseInt(e.target.value) || 1})}
-                  />
-                </div>
-                
-                <div className="availability-section">
-                  <h3>Availability</h3>
-                  
-                  {/* Days of the week */}
-                  {[0, 1, 2, 3, 4, 5, 6].map(day => (
-                    <div key={day} className="day-availability">
-                      <div className="day-header">
-                        <div className="day-controls">
-                          <input 
-                            type="checkbox" 
-                            id={`edit-day-${day}`} 
-                            checked={currentWorker.availability[day].available}
-                            onChange={() => toggleDayAvailability(day)}
-                          />
-                          <label htmlFor={`edit-day-${day}`}>{getDayName(day)}</label>
-                        </div>
-                        
-                        {currentWorker.availability[day].available && (
-                          <div className="all-day-toggle">
-                            <input 
-                              type="checkbox" 
-                              id={`edit-allday-${day}`} 
-                              checked={currentWorker.availability[day].allDay}
-                              onChange={() => toggleAllDay(day)}
-                            />
-                            <label htmlFor={`edit-allday-${day}`}>All Day</label>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {currentWorker.availability[day].available && !currentWorker.availability[day].allDay && (
-                        <div className="hours-container">
-                          {businessHours.map(hour => (
-                            <div 
-                              key={hour} 
-                              className={`hour-checkbox ${currentWorker.availability[day].hours.includes(hour) ? 'selected' : ''}`}
-                              onClick={() => toggleHourAvailability(day, hour)}
-                            >
-                              {formatHour(hour)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="modal-footer">
-                <button className="remove-worker-button" onClick={handleRemoveWorker}>Remove Worker</button>
-                <div>
-                  <button className="cancel-button" onClick={() => setShowAvailabilityModal(false)}>Cancel</button>
-                  <button className="save-button" onClick={handleSaveAvailability}>Save Changes</button>
-                </div>
-              </div>
+              {/* Use the Popup component */}
+              <Popup 
+                worker={currentWorker}
+                onSave={handleSaveAvailability}
+                onCancel={() => setShowAvailabilityModal(false)}
+                onRemove={handleRemoveWorker}
+                modalTitle={`Edit ${currentWorker.name}'s Availability`}
+              />
             </div>
           </div>
         )}
@@ -781,8 +649,20 @@ function Creator() {
               </div>
               
               <div className="modal-footer">
-                <button className="cancel-button" onClick={() => setShowSettingsModal(false)}>Cancel</button>
-                <button className="save-button" onClick={handleSaveSettings}>Save Settings</button>
+                <button 
+                  className="cancel-button" 
+                  onClick={() => setShowSettingsModal(false)}
+                  style={{ backgroundColor: "rgb(0, 35, 92)", color: "white" }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="save-button" 
+                  onClick={handleSaveSettings}
+                  style={{ backgroundColor: "rgb(0, 35, 92)", color: "white" }}
+                >
+                  Save Settings
+                </button>
               </div>
             </div>
           </div>
