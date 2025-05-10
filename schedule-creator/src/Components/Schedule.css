@@ -1,130 +1,127 @@
 /* GLOBAL RESET */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
-  html, body {
-    height: 100%;
-    font-family: Arial, sans-serif;
-  }
-  
-  .schedule-container {
-    width: 100%;
-    height: 100%;
-    background-color: white;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .schedule-header {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 20px;
-    background-color: white;
-    border-bottom: 1px solid #e0e0e0;
-    height: 60px;
-    align-items: center;
-    box-sizing: border-box;
-  }
-  
-  .month-year {
-    font-size: 18px;
-    font-weight: 500;
-    color: #333;
-  }
-  
-  .time-range {
-    font-size: 16px;
-    color: #333;
-  }
-  
-  .schedule-grid {
-    display: flex;
-    width: 100%;
-    height: 564px; /* 18 rows × 28px + 60px header */
-  }
-  
-  .column {
-    width: 12.5%; /* 8 equal columns */
-    border-right: 1px solid #e0e0e0;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .column:last-child {
-    border-right: none;
-  }
-  
-  /* FINAL FIX: Header layout */
-  .day-header {
-    height: 60px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    padding-top: 5px;
-    border-bottom: 1px solid #e0e0e0;
-    background-color: white;
-    font-weight: 500;
-    color: #333;
-    box-sizing: border-box;
-    margin-bottom: 0; /* Add this line to remove the orange space */
-  }
-  
-  .day-name,
-  .day-number {
-    display: block;
-    line-height: 1;
-    margin: 0;
-    padding: 0;
-  }
-  
-  .day-name {
-    font-size: 14px;
-    text-transform: uppercase;
-    color: #666;
-  }
-  
-  .day-number {
-    font-size: 20px;
-    line-height: 20px;
-  }
-  
-  .cell-container {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .time-cell {
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0 0 0 10px;
-    margin: 0;
-    color: #666;
-    font-size: 12px;
-    border-bottom: 1px solid #e0e0e0;
-    box-sizing: border-box;
-  }
-  
-  .time-label {
-    display: block;
-    line-height: 28px;
-    width: 100%;
-  }
-  
-  .calendar-cell {
-    height: 28px;
-    border-bottom: 1px solid #e0e0e0;
-    box-sizing: border-box;
-    cursor: pointer;
-  }
-  
-  .calendar-cell:hover {
-    background-color: #f5f5f5;
-  }
-  
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+.cal-schedule-container {
+  width: 100%;
+  height: 100%;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Prevents scrollbars */
+}
+
+.cal-schedule-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: white;
+  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+}
+
+.cal-month-year {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
+}
+
+.cal-time-range {
+  font-size: 16px;
+  color: #333;
+}
+
+.cal-schedule-grid {
+  display: flex;
+  width: 100%;
+  flex: 1; /* Takes remaining height */
+}
+
+.cal-column {
+  flex: 1; /* Equal width distribution for day columns */
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make time column narrower */
+.cal-time-column {
+  flex: 0.5;
+}
+
+.cal-column:last-child {
+  border-right: none;
+}
+
+.cal-day-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: white;
+  font-weight: 500;
+  color: #333;
+  padding: 10px 0;
+  height: 56px; /* Fixed height for headers */
+  margin-bottom: 0; /* Remove margin */
+}
+
+.cal-day-name,
+.cal-day-number {
+  display: block;
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+}
+
+.cal-day-name {
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #333; /* Keeping all day names the same color as requested */
+}
+
+.cal-day-number {
+  font-size: 20px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.cal-cell-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Takes remaining height */
+}
+
+.cal-time-cell {
+  flex: 1; /* Equal height distribution */
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  font-size: 14px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cal-time-label {
+  display: block;
+  color: #666;
+}
+
+.cal-calendar-cell {
+  flex: 1; /* Equal height distribution */
+  border-bottom: 1px solid #e0e0e0;
+  cursor: pointer;
+}
+
+.cal-calendar-cell:hover {
+  background-color: #f5f5f5;
+}

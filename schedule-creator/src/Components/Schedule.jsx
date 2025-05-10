@@ -17,6 +17,7 @@ function Schedule() {
         }
       })
       .catch(() => {
+        // Fallback to local date if API fails
         generateWeekDays(new Date());
       });
 
@@ -59,29 +60,26 @@ function Schedule() {
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   return (
-    <div className="schedule-container">
-      <div className="schedule-header">
-        <div className="month-year">
+    <div className="cal-schedule-container">
+      <div className="cal-schedule-header">
+        <div className="cal-month-year">
           {currentWeek.length > 0 ? formatDate(currentWeek[0]) : 'Loading...'}
         </div>
-        <div className="time-range">5 a.m. - 10 p.m.</div>
+        <div className="cal-time-range">5 a.m. - 10 p.m.</div>
       </div>
 
-      <div className="schedule-grid">
+      <div className="cal-schedule-grid">
         {/* EST Column */}
-        <div className="column est-column">
-          <div className="day-header">
-            <div className="day-name">EST</div>
-            <div className="day-number" style={{ visibility: 'hidden' }}>0</div>
+        <div className="cal-column cal-time-column">
+          <div className="cal-day-header">
+            <span className="cal-day-name">EST</span>
           </div>
-          <div className="cell-container">
-            {hours.map((hour, index) => (
-              <div
-                key={`hour-${index}`}
-                className="time-cell"
-                style={{ height: '28px' }}
-              >
-                <span className="time-label">{getHourLabel(hour)}</span>
+          <div className="cal-cell-container">
+            {hours.map((hour) => (
+              <div key={`hour-${hour}`} className="cal-time-cell">
+                <span className="cal-time-label">
+                  {getHourLabel(hour)}
+                </span>
               </div>
             ))}
           </div>
@@ -89,17 +87,16 @@ function Schedule() {
 
         {/* Day Columns */}
         {currentWeek.map((day, index) => (
-          <div key={`day-${index}`} className="column day-column">
-            <div className="day-header" style={{ marginBottom: 0 }}>
-                <div className="day-name">{daysOfWeek[index]}</div>
-                <div className="day-number">{day.getDate()}</div>
+          <div key={`day-${index}`} className="cal-column">
+            <div className="cal-day-header">
+              <span className="cal-day-name">{daysOfWeek[day.getDay()]}</span>
+              <span className="cal-day-number">{day.getDate()}</span>
             </div>
-            <div className="cell-container">
-              {hours.map((_, hourIndex) => (
+            <div className="cal-cell-container">
+              {hours.map((hour) => (
                 <div
-                  key={`cell-${index}-${hourIndex}`}
-                  className="calendar-cell"
-                  style={{ height: '28px' }}
+                  key={`cell-${index}-${hour}`}
+                  className="cal-calendar-cell"
                 ></div>
               ))}
             </div>

@@ -1,0 +1,614 @@
+/* Base HTML/Body settings for natural scrolling */
+html, body {
+  height: auto;
+  min-height: 100%;
+  overflow-y:auto;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow-x: hidden; /* Prevent horizontal scroll on the whole page */
+}
+
+/* Main container settings */
+.custom-container {
+    padding: 20px;
+    max-width: 1600px; /* Increased from 1400px for more space */
+    margin: 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: 100%;
+    overflow: visible; /* Allow content to flow naturally */
+}
+
+.custom-container h2 {
+    color: #1a365d;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Weekly Schedule Builder Layout */
+.weekly-schedule-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: auto; /* Allow natural height */
+    overflow: visible;
+}
+
+.schedule-controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    justify-content: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: white;
+    padding: 10px 0;
+}
+
+.add-time-slot-button,
+.clear-schedule-button,
+.save-schedule-button {
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    color: white;
+}
+
+.add-time-slot-button {
+    background-color: #1a365d;
+}
+
+.add-time-slot-button:hover {
+    background-color: #0f2340;
+}
+
+.clear-schedule-button {
+    background-color: #e53e3e;
+}
+
+.clear-schedule-button:hover {
+    background-color: #c53030;
+}
+
+.save-schedule-button {
+    background-color: #38a169;
+}
+
+.save-schedule-button:hover {
+    background-color: #2f855a;
+}
+
+.clear-schedule-button:disabled,
+.save-schedule-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Weekly Schedule Workspace */
+.weekly-schedule-workspace {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/* New container for the grid to handle horizontal scrolling */
+.weekly-schedule-grid-container {
+    flex: 3; /* Increased from 2 to 3 to make it wider */
+    min-width: 65%; /* Ensure it takes up at least 65% of the space */
+    overflow-x: auto; /* Enable horizontal scrolling if needed */
+    height: auto;
+    overflow-y: visible;
+}
+
+.weekly-schedule-grid {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9fafb;
+    min-width: 850px; /* Minimum width to prevent squishing */
+    display: flex;
+    flex-direction: column;
+    height: auto;
+}
+
+/* Header Row - Keep fixed */
+.weekly-header-row {
+    display: flex;
+    border-bottom: 1px solid #000;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: #f9fafb;
+}
+
+.weekly-time-column-header {
+    width: 150px; /* Increased from 120px */
+    border-right: 1px solid #000;
+    background-color: #f9fafb;
+}
+
+.weekly-day-header {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-right: 1px solid #000;
+    background-color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    min-width: 100px; /* Prevent too narrow columns */
+}
+
+.weekly-day-name {
+    font-weight: bold;
+    color: #000; /* Black color for day names */
+    font-size: 1rem;
+    text-transform: uppercase;
+}
+
+.weekly-day-date {
+    margin-top: 4px;
+    font-weight: normal;
+    color: #000; /* Black color for dates */
+}
+
+/* Container for time slots to enable scrolling */
+.weekly-timeslots-container {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+}
+
+/* Time Slot Rows */
+.weekly-time-row {
+    display: flex;
+    border-bottom: 1px solid #000;
+    position: relative;
+    min-height: 100px; /* Ensure minimum height for better display */
+}
+
+.weekly-time-label {
+    width: 150px; /* Increased from 120px */
+    padding: 10px;
+    border-right: 1px solid #000;
+    background-color: #f9fafb;
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.weekly-schedule-cell {
+    flex: 1;
+    min-height: 100px; /* Increased from 80px */
+    padding: 10px 5px; /* Adjusted horizontal padding */
+    border-right: 1px solid #000;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    min-width: 100px; /* Prevent too narrow columns */
+}
+
+.weekly-schedule-cell:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.weekly-schedule-cell.available {
+    background-color: white;
+}
+
+.weekly-schedule-cell.unavailable {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+.weekly-schedule-cell.has-workers {
+    background-color: white;
+}
+
+.weekly-schedule-cell.empty {
+    background-color: white;
+}
+
+.weekly-schedule-cell.valid-drop-target {
+    box-shadow: inset 0 0 0 3px #38a169;
+}
+
+.weekly-schedule-cell.invalid-drop-target {
+    box-shadow: inset 0 0 0 3px #e53e3e;
+}
+
+/* Staff Container */
+.weekly-staff-container {
+    flex: 1;
+    max-width: 30%; /* Limiting width to 30% */
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-self: flex-start; /* Allow to float at top during scrolling */
+    position: sticky;
+    top: 80px; /* Give some space from top when scrolling */
+    max-height: calc(100vh - 120px); /* Dynamic height based on viewport */
+}
+
+.weekly-staff-container h3 {
+    color: #1a365d;
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 18px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.weekly-staff-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Exactly two columns */
+    gap: 16px;
+    overflow-y: auto;
+    padding: 8px;
+    flex-grow: 1;
+    max-height: calc(100vh - 250px); /* Dynamic height */
+}
+
+.weekly-staff-block {
+    background-color: #ebf8ff;
+    border-radius: 8px;
+    padding: 14px;
+    cursor: grab;
+    transition: all 0.2s;
+    border: 1px solid #bee3f8;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.weekly-staff-block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.weekly-staff-block.dragging {
+    opacity: 0.7;
+    transform: scale(0.95);
+}
+
+.weekly-staff-block.fully-assigned {
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.weekly-staff-name {
+    font-weight: bold;
+    color: #1a365d;
+    font-size: 16px;
+    word-break: break-word;
+    text-align: center;
+}
+
+.weekly-staff-status {
+    font-size: 14px;
+    color: #718096;
+    text-align: center;
+}
+
+.weekly-assignment-count {
+    font-weight: bold;
+}
+
+.weekly-staff-help {
+    margin-top: 16px;
+    padding: 12px;
+    background-color: #f7fafc;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #718096;
+}
+
+/* Assigned worker styling */
+.assigned-worker-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Changed from center */
+    position: relative;
+    padding: 3px 8px;
+    width: 100%;
+    margin: 2px 0;
+    background-color: rgba(221, 107, 32, 0.05); /* Subtle background */
+    border-radius: 4px;
+    transition: background-color 0.15s;
+}
+
+.assigned-worker-container:hover {
+    background-color: rgba(221, 107, 32, 0.1);
+}
+
+/* Improve worker name text handling */
+.assigned-worker-name {
+    font-size: 1rem; /* Slightly reduced from 1.1rem */
+    color: #dd6b20;
+    font-weight: bold;
+    flex: 1;
+    word-break: break-word; /* Allow long names to break */
+    overflow-wrap: break-word;
+    max-width: calc(100% - 25px); /* Make room for the remove button */
+    text-align: left; /* Changed from center for better readability of long names */
+    padding-right: 5px;
+}
+
+.remove-worker-button {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    margin-left: 5px;
+    padding: 0;
+    line-height: 1;
+}
+
+.assigned-worker-container:hover .remove-worker-button {
+    opacity: 1;
+}
+
+/* Time slot remove button */
+.weekly-slot-actions {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    display: flex;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.weekly-time-label:hover .weekly-slot-actions {
+    opacity: 1;
+}
+
+.weekly-remove-slot-button {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.weekly-remove-slot-button:hover {
+    background-color: #c53030;
+    transform: scale(1.1);
+}
+
+/* Empty schedule message */
+.empty-schedule-message {
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    background-color: #f9fafb;
+    border-bottom: 1px solid #000;
+    font-style: italic;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #1a365d;
+}
+
+.modal-close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #718096;
+}
+
+.modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.modal-footer {
+    padding: 16px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-cancel-button,
+.modal-add-button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.modal-cancel-button {
+    background-color: #edf2f7;
+    color: #4a5568;
+}
+
+.modal-add-button {
+    background-color: #1a365d;
+    color: white;
+}
+
+.modal-cancel-button:hover {
+    background-color: #e2e8f0;
+}
+
+.modal-add-button:hover {
+    background-color: #0f2340;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #4a5568;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+}
+
+/* General Utilities */
+.loading, .error {
+    text-align: center;
+    padding: 40px;
+    font-size: 18px;
+}
+
+.error {
+    color: #e53e3e;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    background-color: #f7fafc;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.no-data p {
+    color: #718096;
+    font-size: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .weekly-schedule-workspace {
+        flex-direction: column; /* Stack grid and staff list */
+    }
+    
+    .weekly-schedule-grid-container {
+        flex: none;
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .weekly-staff-container {
+        flex: none;
+        max-width: 100%;
+        width: 100%;
+        margin-top: 20px;
+        position: relative;
+        top: 0;
+        max-height: none;
+        height: auto;
+    }
+    
+    .weekly-staff-grid {
+        grid-template-columns: repeat(3, 1fr); /* Adjusted to 3 columns */
+        max-height: none;
+        height: auto;
+    }
+}
+
+@media (max-width: 900px) {
+    .weekly-staff-grid {
+        grid-template-columns: repeat(2, 1fr); /* Back to 2 columns */
+    }
+    
+    .weekly-day-name, .weekly-day-date {
+        font-size: 0.9rem; /* Slightly smaller */
+    }
+}
+
+/* App Layout fixes - may need to adjust based on your app structure */
+#root, 
+.app-wrapper, 
+.main-content, 
+.layout-container {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+
+/* Important override for any parent container that might have fixed height */
+.app {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}

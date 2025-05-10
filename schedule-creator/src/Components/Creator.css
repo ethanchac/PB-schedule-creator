@@ -595,3 +595,82 @@ input[type="checkbox"] {
 .bg-green-500.hover\:bg-green-600.text-white.font-medium.py-2.px-4.rounded.transition-colors.duration-200:hover {
   background-color: #16a34a;
 }
+/* Enhanced Modal Overlay styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Remove the fixed dimensions from .modal-content when used with Popup */
+.modal-overlay > .bg-white {
+  margin: auto;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+/* Add these styles to your Creator.css file */
+
+/* Worker name input styling for Add Worker modal */
+.worker-name-input-wrapper {
+  width: 100%;
+  max-width: 64rem; /* Match the max-width of the Popup */
+  margin: 0 auto 1rem auto;
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1001;
+}
+
+.worker-name-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1.25rem;
+  color: #333;
+  border: 2px solid rgb(0, 35, 92);
+  border-radius: 0.375rem;
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.worker-name-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 35, 92, 0.2);
+}
+
+.worker-name-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Enhanced Modal Overlay styles - already added */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Remove the fixed dimensions from .modal-content when used with Popup */
+.modal-overlay > .bg-white {
+  margin: auto;
+  max-height: 90vh;
+  overflow-y: auto;
+}

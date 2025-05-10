@@ -152,8 +152,17 @@ const Popup = ({
   const darkNavy = "rgb(0, 35, 92)";
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl mx-auto">
-      <div className="text-xl font-semibold mb-4 text-center">{modalTitle}</div>
+    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-5xl mx-auto relative">
+      {/* Close button in top right corner */}
+      <button 
+        className="popup-close-button" 
+        onClick={onCancel}
+        aria-label="Close"
+      >
+        ×
+      </button>
+      
+      <div className="text-2xl font-semibold mb-6 text-center">{modalTitle}</div>
       
       {/* Maximum Days Setting */}
       <div className="mb-6 p-4 border rounded-lg bg-gray-50">
@@ -185,45 +194,51 @@ const Popup = ({
         </p>
       </div>
       
-      {/* Day selector tabs */}
-      <div className="flex mb-6 overflow-x-auto">
-        {[0, 1, 2, 3, 4, 5, 6].map(day => (
-          <button
-            key={day}
-            onClick={() => setActiveDay(day)}
-            style={{ 
-              fontWeight: 700, 
-              color: activeDay === day ? darkNavy : '#374151',
-              borderColor: activeDay === day ? darkNavy : 'transparent'
-            }}
-            className={`flex-shrink-0 py-2 px-4 mr-2 rounded-t-lg border-b-2 focus:outline-none ${
-              activeDay === day 
-                ? 'bg-blue-50 day-tab-active' 
-                : 'border-transparent hover:text-gray-700 hover:border-gray-300'
-            } ${
-              currentWorker.availability[day].available
-                ? currentWorker.availability[day].allDay 
-                  ? 'bg-blue-100' 
-                  : 'bg-blue-50'
-                : ''
-            }`}
-          >
-            {getDayName(day)}
-          </button>
-        ))}
+      {/* Day selector tabs - removed overflow-x-auto to fix scrollbar issue */}
+      <div className="flex mb-8 justify-center">
+        {[0, 1, 2, 3, 4, 5, 6].map(day => {
+          const isActive = activeDay === day;
+          const isAvailable = currentWorker.availability[day].available;
+          const isAllDay = currentWorker.availability[day].allDay;
+          
+          return (
+            <button
+              key={day}
+              onClick={() => setActiveDay(day)}
+              className={`flex-shrink-0 py-3 px-6 mr-3 rounded-t-lg border-b-3 focus:outline-none text-lg ${
+                isActive 
+                  ? 'bg-blue-50 day-tab-active' 
+                  : 'border-transparent hover:text-gray-700 hover:border-gray-300'
+              } ${
+                isAvailable
+                  ? isAllDay 
+                    ? 'bg-blue-100' 
+                    : 'bg-blue-50'
+                  : ''
+              }`}
+              style={{ 
+                fontWeight: 700, 
+                color: isActive ? darkNavy : '#374151',
+                borderColor: isActive ? darkNavy : 'transparent'
+              }}
+            >
+              {getDayName(day)}
+            </button>
+          );
+        })}
       </div>
       
       {/* Day availability toggle */}
-      <div className="flex justify-between items-center mb-6 border-b pb-4">
+      <div className="flex justify-between items-center mb-8 border-b pb-6">
         <div className="flex items-center">
           <input
             id={`day-${activeDay}`}
             type="checkbox"
-            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+            className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500"
             checked={currentWorker.availability[activeDay].available}
             onChange={() => toggleDayAvailability(activeDay)}
           />
-          <label htmlFor={`day-${activeDay}`} className="ml-2 text-lg font-semibold" style={{ color: '#333333' }}>
+          <label htmlFor={`day-${activeDay}`} className="ml-3 text-xl font-semibold" style={{ color: '#333333' }}>
             Available on {getDayName(activeDay)}
           </label>
         </div>
@@ -233,29 +248,29 @@ const Popup = ({
             <input
               id={`allday-${activeDay}`}
               type="checkbox"
-              className="w-5 h-5 text-green-600 rounded focus:ring-green-500"
+              className="w-6 h-6 text-green-600 rounded focus:ring-green-500"
               checked={currentWorker.availability[activeDay].allDay}
               onChange={() => toggleAllDay(activeDay)}
             />
-            <label htmlFor={`allday-${activeDay}`} className="ml-2 text-lg font-semibold" style={{ color: '#333333' }}>
+            <label htmlFor={`allday-${activeDay}`} className="ml-3 text-xl font-semibold" style={{ color: '#333333' }}>
               Available All Day
             </label>
           </div>
         )}
       </div>
       
-      {/* Time selection - Always show time blocks when available, even if allDay is true */}
+      {/* Time selection */}
       {currentWorker.availability[activeDay].available && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {timeBlocks.map((block, blockIndex) => (
-            <div key={blockIndex} className="border rounded-lg p-4">
-              <div className="text-lg font-medium mb-3">{block.name}</div>
-              <div className="grid grid-cols-4 gap-2">
+            <div key={blockIndex} className="border rounded-lg p-5">
+              <div className="text-lg font-medium mb-4">{block.name}</div>
+              <div className="grid grid-cols-6 gap-3">
                 {block.hours.map(hour => (
                   <div
                     key={hour}
                     onClick={() => toggleHourAvailability(activeDay, hour)}
-                    className={`px-2 py-3 rounded-md text-center transition-colors duration-200 ${
+                    className={`px-3 py-4 rounded-md text-center transition-colors duration-200 text-lg ${
                       currentWorker.availability[activeDay].allDay || 
                       currentWorker.availability[activeDay].hours.includes(hour)
                         ? 'bg-blue-500 text-white'
@@ -274,27 +289,25 @@ const Popup = ({
       )}
       
       {/* Actions */}
-      <div className="flex justify-between mt-8 pt-4 border-t">
+      <div className="flex justify-between mt-10 pt-6 border-t">
         {onRemove && (
           <button
             onClick={() => onRemove(currentWorker)}
-            className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded transition-colors duration-200"
+            className="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-6 text-lg rounded transition-colors duration-200"
           >
             Remove Worker
           </button>
         )}
-        <div className={`${onRemove ? '' : 'ml-auto'} space-x-3`}>
+        <div className={`${onRemove ? '' : 'ml-auto'} space-x-4`}>
           <button
             onClick={onCancel}
-            className="text-white font-medium py-2 px-4 rounded transition-colors duration-200"
-            style={{ backgroundColor: darkNavy, borderColor: darkNavy }}
+            className="navy-button font-medium py-3 px-6 text-lg rounded transition-colors duration-200"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="text-white font-medium py-2 px-4 rounded transition-colors duration-200"
-            style={{ backgroundColor: darkNavy, borderColor: darkNavy }}
+            className="navy-button font-medium py-3 px-6 text-lg rounded transition-colors duration-200"
           >
             Save Changes
           </button>
