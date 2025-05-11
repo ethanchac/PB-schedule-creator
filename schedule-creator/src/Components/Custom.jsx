@@ -30,33 +30,128 @@ function Custom() {
     // Reference to store the drag source element for styling
     const dragSourceRef = useRef(null);
     
+    // Helper function to ensure consistent ID types
+    const ensureConsistentIds = (scheduleData) => {
+        // Deep copy to avoid mutating original
+        const fixedSchedule = JSON.parse(JSON.stringify(scheduleData));
+        
+        // Process each day and slot to ensure worker IDs are strings
+        Object.keys(fixedSchedule).forEach(day => {
+            if (fixedSchedule[day]) {
+                Object.keys(fixedSchedule[day]).forEach(slotIndex => {
+                    const slot = fixedSchedule[day][slotIndex];
+                    
+                    if (slot && slot.workers && Array.isArray(slot.workers)) {
+                        // Ensure all worker IDs are strings
+                        slot.workers = slot.workers.map(id => String(id));
+                        console.log(`Normalized worker IDs for day ${day}, slot ${slotIndex}:`, slot.workers);
+                    }
+                });
+            }
+        });
+        
+        return fixedSchedule;
+    };
+
+    // Helper function to clean up missing workers
+    const cleanupMissingWorkers = (scheduleData, staffList) => {
+        // Deep copy to avoid mutating original
+        const cleanedSchedule = JSON.parse(JSON.stringify(scheduleData));
+        const staffIds = staffList.map(worker => String(worker.id));
+        let removedCount = 0;
+        
+        console.log("Cleaning up schedule - Available staff IDs:", staffIds);
+        
+        // Process each day and slot to remove invalid worker IDs
+        Object.keys(cleanedSchedule).forEach(day => {
+            if (cleanedSchedule[day]) {
+                Object.keys(cleanedSchedule[day]).forEach(slotIndex => {
+                    const slot = cleanedSchedule[day][slotIndex];
+                    
+                    if (slot && slot.workers && Array.isArray(slot.workers)) {
+                        // Filter out worker IDs that don't exist in staffIds
+                        const originalCount = slot.workers.length;
+                        slot.workers = slot.workers.filter(workerId => {
+                            const stringId = String(workerId);
+                            const exists = staffIds.includes(stringId);
+                            if (!exists) {
+                                console.warn(`Removing non-existent worker ID ${workerId} from day ${day}, slot ${slotIndex}`);
+                                removedCount++;
+                            }
+                            return exists;
+                        });
+                        
+                        if (originalCount !== slot.workers.length) {
+                            console.log(`Removed ${originalCount - slot.workers.length} invalid workers from day ${day}, slot ${slotIndex}`);
+                        }
+                    }
+                });
+            }
+        });
+        
+        console.log(`Total workers removed from schedule: ${removedCount}`);
+        return cleanedSchedule;
+    };
+    
     // Initialize the week
     useEffect(() => {
         generateWeekDays(new Date());
     }, []);
     
-    // Initialize schedule structure based on time slots
+    // Initialize schedule structure based on time slots while preserving existing workers
     useEffect(() => {
         if (timeSlots.length > 0 && currentWeek.length > 0) {
-            const initialSchedule = {};
+            // Create a deep copy of the existing schedule to preserve workers
+            const newSchedule = JSON.parse(JSON.stringify(schedule));
             
-            // For each day (0=Sunday through 6=Saturday in array)
+            // For each day
             currentWeek.forEach((day, dayIndex) => {
                 const dayStr = dayIndex.toString();
-                initialSchedule[dayStr] = {};
+                
+                // Initialize day if it doesn't exist
+                if (!newSchedule[dayStr]) {
+                    newSchedule[dayStr] = {};
+                }
                 
                 // For each time slot
                 timeSlots.forEach((slot, slotIndex) => {
-                    initialSchedule[dayStr][slotIndex.toString()] = {
-                        workers: [],
-                        required: slot.requiredWorkers,
-                        start: slot.startTime,
-                        end: slot.endTime
-                    };
+                    const slotStr = slotIndex.toString();
+                    
+                    // Preserve existing workers if the slot already exists
+                    if (newSchedule[dayStr][slotStr]) {
+                        // Update other slot properties but keep workers
+                        const existingWorkers = newSchedule[dayStr][slotStr].workers || [];
+                        
+                        newSchedule[dayStr][slotStr] = {
+                            workers: existingWorkers,
+                            required: slot.requiredWorkers,
+                            start: slot.startTime,
+                            end: slot.endTime
+                        };
+                    } else {
+                        // Create new slot if it doesn't exist
+                        newSchedule[dayStr][slotStr] = {
+                            workers: [],
+                            required: slot.requiredWorkers,
+                            start: slot.startTime,
+                            end: slot.endTime
+                        };
+                    }
+                });
+                
+                // Clean up slots that no longer exist in timeSlots
+                Object.keys(newSchedule[dayStr]).forEach(slotIndex => {
+                    if (parseInt(slotIndex) >= timeSlots.length) {
+                        delete newSchedule[dayStr][slotIndex];
+                    }
                 });
             });
             
-            setSchedule(initialSchedule);
+            // Update the schedule state
+            setSchedule(newSchedule);
+            
+            // Log the updated schedule
+            console.log("Schedule structure updated:", newSchedule);
         }
     }, [timeSlots, currentWeek]);
 
@@ -87,9 +182,10 @@ function Custom() {
                     setLoading(true);
                     console.log("Loading people data for user:", currentUser.uid);
                     
-                    // Get all people
+                    // Get all people first - we need this before processing the schedule
                     const peopleData = await getPeople(currentUser.uid);
-                    console.log("People data loaded successfully:", peopleData);
+                    console.log("People data loaded successfully:", peopleData.length, "people");
+                    console.log("People details:", peopleData.map(p => ({id: p.id, name: p.name})));
                     
                     // Process the staff data to track schedule assignment
                     const processedStaff = peopleData.map(person => ({
@@ -98,34 +194,144 @@ function Custom() {
                         assignments: {} // Track specific assignments
                     }));
                     
-                    setStaff(processedStaff);
-                    setError(null);
-                    
                     // Try to load saved schedule if it exists
                     try {
+                        console.log("Attempting to load saved schedule...");
                         const allAvailabilityData = await getAllAvailability(currentUser.uid);
+                        
                         if (allAvailabilityData && allAvailabilityData.length > 0) {
                             // Find the custom schedule if it exists
                             const savedSchedule = allAvailabilityData.find(item => item.id === 'custom-schedule');
                             
                             if (savedSchedule && savedSchedule.timeSlots && savedSchedule.schedule) {
-                                console.log("Found saved schedule:", savedSchedule);
+                                console.log("Found saved schedule:", JSON.stringify(savedSchedule));
+                                
+                                // First normalize the worker IDs to ensure consistency
+                                const normalizedSchedule = ensureConsistentIds(savedSchedule.schedule);
+                                
+                                // Then clean up any worker IDs that don't exist in the staff
+                                const cleanedSchedule = cleanupMissingWorkers(normalizedSchedule, processedStaff);
+                                
+                                // Check if workers are in the saved schedule
+                                let workersFound = false;
+                                let totalWorkers = 0;
+                                
+                                Object.entries(cleanedSchedule).forEach(([day, slots]) => {
+                                    if (!slots) return;
+                                    
+                                    Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                                        if (slotData && slotData.workers && slotData.workers.length > 0) {
+                                            workersFound = true;
+                                            totalWorkers += slotData.workers.length;
+                                            console.log(`Found ${slotData.workers.length} workers in day ${day}, slot ${slotIndex}:`, slotData.workers);
+                                            
+                                            // Check each worker ID exists in staff
+                                            slotData.workers.forEach(workerId => {
+                                                const worker = processedStaff.find(w => String(w.id) === String(workerId));
+                                                if (!worker) {
+                                                    console.error(`Worker ${workerId} in schedule not found in staff!`);
+                                                } else {
+                                                    console.log(`Verified worker ${workerId} (${worker.name}) exists in staff`);
+                                                }
+                                            });
+                                        }
+                                    });
+                                });
+                                
+                                console.log(`Total workers in cleaned schedule: ${totalWorkers}`);
+                                
+                                if (!workersFound) {
+                                    console.warn("WARNING: No workers found in the loaded schedule!");
+                                }
+                                
+                                // First set the time slots
+                                console.log("Setting timeSlots with:", savedSchedule.timeSlots.length, "slots");
                                 setTimeSlots(savedSchedule.timeSlots);
-                                setSchedule(savedSchedule.schedule);
+                                
+                                // Then set the schedule with workers
+                                console.log("Setting schedule with cleaned data");
+                                setSchedule(cleanedSchedule);
+                                
+                                // Now update the staff assignments
+                                // IMPORTANT: We need to calculate assignments from the saved schedule
+                                if (workersFound) {
+                                    const assignmentMap = {};
+                                    
+                                    // Initialize map for all staff members
+                                    processedStaff.forEach(worker => {
+                                        console.log(`Initializing assignments for worker: ${worker.name} (${worker.id})`);
+                                        assignmentMap[String(worker.id)] = {
+                                            days: new Set(),
+                                            slots: {}
+                                        };
+                                    });
+                                    
+                                    // Build assignment map from saved schedule
+                                    Object.entries(cleanedSchedule).forEach(([day, slots]) => {
+                                        if (!slots) return;
+                                        
+                                        Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                                            if (!slotData || !slotData.workers) return;
+                                            
+                                            slotData.workers.forEach(workerId => {
+                                                const stringWorkerId = String(workerId);
+                                                
+                                                if (assignmentMap[stringWorkerId]) {
+                                                    console.log(`Assigning worker ${workerId} to day ${day}, slot ${slotIndex}`);
+                                                    assignmentMap[stringWorkerId].days.add(parseInt(day));
+                                                    
+                                                    if (!assignmentMap[stringWorkerId].slots[day]) {
+                                                        assignmentMap[stringWorkerId].slots[day] = [];
+                                                    }
+                                                    
+                                                    assignmentMap[stringWorkerId].slots[day].push(parseInt(slotIndex));
+                                                } else {
+                                                    console.error(`Worker ${workerId} not found in assignmentMap - this should not happen!`);
+                                                }
+                                            });
+                                        });
+                                    });
+                                    
+                                    // Apply assignments to staff
+                                    const updatedStaff = processedStaff.map(worker => {
+                                        const workerId = String(worker.id);
+                                        const assignments = assignmentMap[workerId] || { days: new Set(), slots: {} };
+                                        
+                                        return {
+                                            ...worker,
+                                            assigned: assignments.days.size,
+                                            assignments: assignments.slots
+                                        };
+                                    });
+                                    
+                                    console.log("Staff with assignments:", updatedStaff.map(w => ({
+                                        id: w.id,
+                                        name: w.name,
+                                        assigned: w.assigned
+                                    })));
+                                    
+                                    setStaff(updatedStaff);
+                                } else {
+                                    // If no workers found, just set the staff without assignments
+                                    setStaff(processedStaff);
+                                }
                             } else {
-                                // Add default time slots if no schedule exists
+                                console.log("Saved schedule missing required data, resetting to empty schedule");
                                 setTimeSlots([]);
+                                setStaff(processedStaff);
                             }
                         } else {
-                            // Add default time slots if no availability data exists
+                            console.log("No saved schedule found, starting with empty schedule");
                             setTimeSlots([]);
+                            setStaff(processedStaff);
                         }
                     } catch (loadError) {
                         console.error("Error loading saved schedule:", loadError);
-                        // Add default time slots if error loading
                         setTimeSlots([]);
+                        setStaff(processedStaff);
                     }
                     
+                    setError(null);
                 } catch (err) {
                     console.error("Error loading data:", err);
                     setError(`Error loading data: ${err.message || 'Unknown error'}`);
@@ -209,13 +415,28 @@ function Custom() {
             return true;
         }
         
+        // Extract start and end times from timeSlot object
+        // Handle both {start, end} and {startTime, endTime} formats
+        const startTimeStr = timeSlot.start || timeSlot.startTime;
+        const endTimeStr = timeSlot.end || timeSlot.endTime;
+        
+        if (!startTimeStr || !endTimeStr) {
+            console.error("Missing start or end time in timeSlot", timeSlot);
+            return false;
+        }
+        
         // Parse time slot times
-        const slotStartHour = parseInt(timeSlot.start.split(':')[0], 10);
-        const slotEndHour = parseInt(timeSlot.end.split(':')[0], 10);
+        const slotStartHour = parseInt(startTimeStr.split(':')[0], 10);
+        const slotEndHour = parseInt(endTimeStr.split(':')[0], 10);
+        
+        // Convert worker's availability hours to numbers if they're strings
+        const availableHours = dayAvailability.hours.map(h => 
+            typeof h === 'string' ? parseInt(h, 10) : h
+        );
         
         // Check if all hours in the time slot are in the worker's availability
         for (let hour = slotStartHour; hour < slotEndHour; hour++) {
-            if (!dayAvailability.hours.includes(hour)) {
+            if (!availableHours.includes(hour)) {
                 return false;
             }
         }
@@ -451,7 +672,7 @@ function Custom() {
         
         // Initialize map for all staff members
         staff.forEach(worker => {
-            assignmentMap[worker.id] = {
+            assignmentMap[String(worker.id)] = {
                 days: new Set(),
                 slots: {}
             };
@@ -465,14 +686,15 @@ function Custom() {
                 if (!slotData || !slotData.workers) return;
                 
                 slotData.workers.forEach(workerId => {
-                    if (assignmentMap[workerId]) {
-                        assignmentMap[workerId].days.add(parseInt(day));
+                    const stringWorkerId = String(workerId);
+                    if (assignmentMap[stringWorkerId]) {
+                        assignmentMap[stringWorkerId].days.add(parseInt(day));
                         
-                        if (!assignmentMap[workerId].slots[day]) {
-                            assignmentMap[workerId].slots[day] = [];
+                        if (!assignmentMap[stringWorkerId].slots[day]) {
+                            assignmentMap[stringWorkerId].slots[day] = [];
                         }
                         
-                        assignmentMap[workerId].slots[day].push(parseInt(slotIndex));
+                        assignmentMap[stringWorkerId].slots[day].push(parseInt(slotIndex));
                     }
                 });
             });
@@ -481,8 +703,8 @@ function Custom() {
         // Update staff state with assignment info
         const updatedStaff = staff.map(worker => ({
             ...worker,
-            assigned: assignmentMap[worker.id] ? assignmentMap[worker.id].days.size : 0,
-            assignments: assignmentMap[worker.id] ? assignmentMap[worker.id].slots : {}
+            assigned: assignmentMap[String(worker.id)] ? assignmentMap[String(worker.id)].days.size : 0,
+            assignments: assignmentMap[String(worker.id)] ? assignmentMap[String(worker.id)].slots : {}
         }));
         
         setStaff(updatedStaff);
@@ -490,7 +712,7 @@ function Custom() {
     
     // Remove a worker from a time slot
     const removeWorkerFromSlot = (workerId, day, slotIndex) => {
-        const newSchedule = {...schedule};
+        const newSchedule = JSON.parse(JSON.stringify(schedule));
         
         if (newSchedule[day] && newSchedule[day][slotIndex] && newSchedule[day][slotIndex].workers) {
             newSchedule[day][slotIndex].workers = newSchedule[day][slotIndex].workers.filter(id => id !== workerId);
@@ -515,7 +737,7 @@ function Custom() {
     // Clear the entire schedule
     const clearSchedule = () => {
         if (window.confirm("Are you sure you want to clear the entire schedule? This cannot be undone.")) {
-            const newSchedule = {...schedule};
+            const newSchedule = JSON.parse(JSON.stringify(schedule));
             
             // Remove all worker assignments but keep time slot structure
             Object.keys(newSchedule).forEach(day => {
@@ -535,7 +757,7 @@ function Custom() {
         }
     };
     
-    // Save the schedule to Firebase
+    // Save the schedule to Firebase with proper deep copying of workers array
     const saveSchedule = async () => {
         if (!currentUser) {
             alert("You must be logged in to save the schedule");
@@ -543,19 +765,69 @@ function Custom() {
         }
         
         setSaving(true);
+        console.log("Starting save schedule process...");
         
         try {
-            // Create a schedule object to save
+            // Create proper deep copies of all data structures
+            let deepCopySchedule = JSON.parse(JSON.stringify(schedule));
+            const deepCopyTimeSlots = JSON.parse(JSON.stringify(timeSlots));
+            
+            // Ensure consistent ID types
+            deepCopySchedule = ensureConsistentIds(deepCopySchedule);
+            
+            console.log("Preparing schedule with the following workers assigned:");
+            // Debug log to check workers arrays
+            Object.entries(deepCopySchedule).forEach(([day, slots]) => {
+                Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                    if (slotData.workers && slotData.workers.length > 0) {
+                        console.log(`Day ${day}, Slot ${slotIndex}: Workers assigned:`, slotData.workers);
+                    }
+                });
+            });
+            
+            // Create the schedule data object
             const scheduleData = {
-                id: 'custom-schedule', // Use a fixed ID for the custom schedule
-                timeSlots: timeSlots,
-                schedule: schedule,
+                id: 'custom-schedule',
+                timeSlots: deepCopyTimeSlots,
+                schedule: deepCopySchedule,
                 updatedAt: new Date().toISOString(),
                 createdAt: new Date().toISOString()
             };
             
+            // Save to Firebase
             await saveAvailability(currentUser.uid, scheduleData);
-            alert("Schedule saved successfully!");
+            
+            // Verify the save by immediately retrieving it
+            const allAvailabilityData = await getAllAvailability(currentUser.uid);
+            const savedSchedule = allAvailabilityData.find(item => item.id === 'custom-schedule');
+            
+            if (savedSchedule) {
+                console.log("Verified saved schedule:", savedSchedule);
+                
+                // Check if workers arrays were saved properly
+                let workersFound = false;
+                if (savedSchedule.schedule) {
+                    Object.entries(savedSchedule.schedule).forEach(([day, slots]) => {
+                        Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                            if (slotData.workers && slotData.workers.length > 0) {
+                                workersFound = true;
+                                console.log(`Verified Day ${day}, Slot ${slotIndex}: Workers present:`, slotData.workers);
+                            }
+                        });
+                    });
+                }
+                
+                if (!workersFound) {
+                    console.warn("WARNING: Schedule saved, but no workers found in the saved data!");
+                } else {
+                    console.log("Workers successfully saved in the schedule");
+                }
+                
+                alert("Schedule saved successfully!");
+            } else {
+                console.error("Failed to verify saved schedule");
+                alert("Schedule may not have saved properly. Please check after reloading.");
+            }
         } catch (err) {
             console.error("Error saving schedule:", err);
             alert(`Error saving schedule: ${err.message || 'Unknown error'}`);
@@ -573,11 +845,75 @@ function Custom() {
             return null;
         }
         
+        console.log(`Getting worker info for day ${day}, slot ${slotIndex}, workers:`, slot.workers);
+        
+        // Convert all IDs to strings for consistent comparison
         return slot.workers.map(workerId => {
-            const worker = staff.find(w => w.id === workerId);
-            return worker ? { id: workerId, name: worker.name } : null;
-        }).filter(info => info);
+            // Ensure workerId is a string for comparison
+            const stringWorkerId = String(workerId);
+            
+            // Find worker by matching ID as string
+            const worker = staff.find(w => String(w.id) === stringWorkerId);
+            
+            if (!worker) {
+                console.warn(`Worker with ID ${workerId} not found in staff list`);
+                return null;
+            }
+            
+            return { id: workerId, name: worker.name };
+        }).filter(info => info !== null);
     };
+    
+    // Debugging helper to inspect the current state of workers in the schedule
+    const debugScheduleWorkers = () => {
+        console.log("==== DEBUG SCHEDULE WORKERS ====");
+        let totalWorkers = 0;
+        
+        Object.entries(schedule).forEach(([day, slots]) => {
+            if (!slots) return;
+            
+            let dayWorkers = 0;
+            Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                if (slotData?.workers?.length > 0) {
+                    dayWorkers += slotData.workers.length;
+                    totalWorkers += slotData.workers.length;
+                    console.log(`Day ${day}, Slot ${slotIndex}: ${slotData.workers.length} workers:`, slotData.workers);
+                    
+                    // Check if all workers exist in staff
+                    slotData.workers.forEach(workerId => {
+                        const worker = staff.find(w => String(w.id) === String(workerId));
+                        console.log(`  Worker ${workerId} exists in staff:`, worker ? `YES (${worker.name})` : "NO");
+                    });
+                }
+            });
+            
+            console.log(`Day ${day}: ${dayWorkers} total workers assigned`);
+        });
+        
+        console.log(`Total workers in schedule: ${totalWorkers}`);
+        console.log("==== END DEBUG SCHEDULE WORKERS ====");
+    };
+    
+    // Monitor schedule and staff changes
+    useEffect(() => {
+        console.log("Schedule updated - checking for workers:");
+        
+        // Count workers in schedule
+        let workerCount = 0;
+        
+        Object.entries(schedule).forEach(([day, slots]) => {
+            if (!slots) return;
+            
+            Object.entries(slots).forEach(([slotIndex, slotData]) => {
+                if (slotData?.workers?.length > 0) {
+                    workerCount += slotData.workers.length;
+                    console.log(`Found ${slotData.workers.length} workers in day ${day}, slot ${slotIndex}`);
+                }
+            });
+        });
+        
+        console.log(`Total workers in schedule: ${workerCount}`);
+    }, [schedule]);
 
     if (loading) {
         return <div className="loading">Loading...</div>;

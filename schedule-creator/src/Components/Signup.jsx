@@ -1,9 +1,8 @@
-// src/components/Signup.js
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import logo from '../assets/logo.png'; // Import your Paris Baguette logo
-import './Signup.css'; // Import the custom CSS
+import logo from '../assets/logo.png'; 
+import './Signup.css'; 
 
 const Signup = () => {
   const emailRef = useRef();

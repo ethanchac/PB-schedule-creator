@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png'; // Import your Paris Baguette logo
-import './Login.css'; // Import the custom CSS
+import './Login.css'; 
 
 const Login = () => {
   const emailRef = useRef();

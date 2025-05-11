@@ -129,21 +129,94 @@ export const deletePerson = async (userId, personId) => {
   }
 };
 
+// Fixed saveAvailability function with proper error handling and retries
 export const saveAvailability = async (userId, availability) => {
-  try {
-    if (availability.id) {
-      const availabilityRef = doc(db, 'users', userId, 'availability', availability.id);
-      await setDoc(availabilityRef, availability, { merge: true });
-      return availability.id;
-    } else {
-      const availabilityRef = collection(db, 'users', userId, 'availability');
-      const docRef = await addDoc(availabilityRef, availability);
-      return docRef.id;
-    }
-  } catch (error) {
-    console.error("Error saving availability: ", error);
-    throw error;
+  // First, validate inputs
+  if (!userId) {
+    throw new Error('User ID is required');
   }
+
+  if (!availability) {
+    throw new Error('Availability data is required');
+  }
+
+  // Clone the data to avoid mutation issues
+  const dataToSave = JSON.parse(JSON.stringify(availability));
+  
+  // Add timestamps if they don't exist
+  if (!dataToSave.createdAt) {
+    dataToSave.createdAt = new Date().toISOString();
+  }
+  dataToSave.updatedAt = new Date().toISOString();
+
+  // Set up retry logic
+  const maxRetries = 3;
+  let retryCount = 0;
+  let lastError = null;
+
+  // Retry loop
+  while (retryCount < maxRetries) {
+    try {
+      console.log(`Attempt ${retryCount + 1} to save availability for ID: ${dataToSave.id}`);
+      
+      if (dataToSave.id) {
+        const availabilityRef = doc(db, 'users', userId, 'availability', dataToSave.id);
+        
+        // Check if document exists first
+        const docSnap = await getDoc(availabilityRef);
+        
+        // Use Promise.race with a timeout to avoid hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database operation timed out (10s)')), 10000)
+        );
+        
+        // Always use setDoc to ensure full document replacement
+        await Promise.race([
+          setDoc(availabilityRef, dataToSave),
+          timeoutPromise
+        ]);
+        
+        console.log(`Successfully saved availability with ID: ${dataToSave.id}`);
+        return dataToSave.id;
+      } else {
+        const availabilityRef = collection(db, 'users', userId, 'availability');
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database operation timed out (10s)')), 10000)
+        );
+        
+        const docRef = await Promise.race([
+          addDoc(availabilityRef, dataToSave),
+          timeoutPromise
+        ]);
+        
+        console.log(`Successfully created new availability with ID: ${docRef.id}`);
+        return docRef.id;
+      }
+    } catch (error) {
+      lastError = error;
+      console.error(`Error saving availability (attempt ${retryCount + 1}): `, error);
+      
+      // Only retry for certain types of errors (network, timeout)
+      if (error.code === 'unavailable' || 
+          error.message.includes('timeout') || 
+          error.code === 'resource-exhausted' ||
+          error.code === 'network-request-failed') {
+        retryCount++;
+        // Exponential backoff
+        const backoffTime = 1000 * Math.pow(2, retryCount);
+        console.log(`Retrying in ${backoffTime/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+        continue;
+      }
+      
+      // If not a retryable error, throw immediately
+      throw error;
+    }
+  }
+  
+  // If we've exhausted retries
+  throw lastError || new Error('Failed to save availability after multiple attempts');
 };
 
 export const getAvailabilityByPerson = async (userId, personId) => {
