@@ -4,6 +4,8 @@ import {
   getPeople, 
   getAllAvailability
 } from '../services/databaseService';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import './Final.css';
 
 function Final() {
@@ -224,9 +226,67 @@ function Final() {
                 </button>
                 <button 
                     className="final_view_print_button"
-                    onClick={() => window.print()}
+                    onClick={() => {                        
+                        
+                        const downloadPDF = async () => {
+                          // Get the schedule table element
+                          const element = document.querySelector('.final_view_table_container');
+                          
+                          if (!element) {
+                            console.error('Table element not found');
+                            return;
+                          }
+                          
+                          try {
+                            // Show loading indicator
+                            setLoading(true);
+                            
+                            // Create a canvas from the table
+                            const canvas = await html2canvas(element, {
+                              scale: 2, // Higher scale for better quality
+                              useCORS: true,
+                              logging: false,
+                              backgroundColor: '#ffffff'
+                            });
+                            
+                            // Calculate dimensions to fit the table properly
+                            const imgWidth = 210; // A4 width in mm (portrait)
+                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                            
+                            // Create PDF
+                            const pdf = new jsPDF('p', 'mm', 'a4');
+                            
+                            // Add title
+                            pdf.setFontSize(16);
+                            pdf.setTextColor(26, 54, 93); // #1a365d
+                            pdf.text('Weekly Staff Schedule', pdf.internal.pageSize.width / 2, 15, { align: 'center' });
+                            
+                            // Add the table image
+                            pdf.addImage(
+                              canvas.toDataURL('image/png'), 
+                              'PNG', 
+                              0, 
+                              25, 
+                              imgWidth, 
+                              imgHeight
+                            );
+                            
+                            // Download the PDF
+                            pdf.save('Weekly_Staff_Schedule.pdf');
+                          } catch (error) {
+                            console.error('Error generating PDF:', error);
+                            alert('Error generating PDF. Please try again.');
+                          } finally {
+                            // Hide loading indicator
+                            setLoading(false);
+                          }
+                        };
+                        
+                        downloadPDF();
+                        
+                    }}
                 >
-                    Print Schedule
+                    Download PDF
                 </button>
             </div>
         </div>
