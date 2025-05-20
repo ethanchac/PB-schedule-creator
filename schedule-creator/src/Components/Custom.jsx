@@ -1,6 +1,7 @@
-// Custom.js
+// Custom.js - Updated to navigate to Final.jsx instead of showing inline view
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for routing
 import { 
   getPeople, 
   getAllAvailability, 
@@ -10,6 +11,7 @@ import './Custom.css';
 
 function Custom() {
     const { currentUser } = useAuth();
+    const navigate = useNavigate(); // For navigation to Final component
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -26,9 +28,15 @@ function Custom() {
     const [currentDrag, setCurrentDrag] = useState(null);
     const [saving, setSaving] = useState(false);
     const [currentWeek, setCurrentWeek] = useState([]);
+    const [hasBeenSaved, setHasBeenSaved] = useState(false);
     
     // Reference to store the drag source element for styling
     const dragSourceRef = useRef(null);
+    
+    // For touch devices - track touch state
+    const [touchDrag, setTouchDrag] = useState(null);
+    const touchTimerRef = useRef(null);
+    const scrollPositionRef = useRef({ x: 0, y: 0 });
     
     // Helper function to ensure consistent ID types
     const ensureConsistentIds = (scheduleData) => {
@@ -315,6 +323,9 @@ function Custom() {
                                     // If no workers found, just set the staff without assignments
                                     setStaff(processedStaff);
                                 }
+                                
+                                // Set hasBeenSaved to true since we loaded a saved schedule
+                                setHasBeenSaved(true);
                             } else {
                                 console.log("Saved schedule missing required data, resetting to empty schedule");
                                 setTimeSlots([]);
@@ -617,15 +628,20 @@ function Custom() {
     
     // Handle drop event
     const handleDrop = (e, dayIndex, slotIndex) => {
-        e.preventDefault();
+        e.preventDefault && e.preventDefault();
         
         // Remove drop target highlighting
-        e.currentTarget.classList.remove('valid-drop-target', 'invalid-drop-target');
+        if (e.currentTarget) {
+            e.currentTarget.classList.remove('valid-drop-target', 'invalid-drop-target');
+        }
         
         // Get the worker ID from the drag data
-        const workerId = e.dataTransfer.getData("workerId");
+        const workerId = (e.dataTransfer && e.dataTransfer.getData("workerId")) || touchDrag;
         
-        if (!workerId) return;
+        if (!workerId) {
+            console.log("No worker ID found in drop event");
+            return;
+        }
         
         const worker = staff.find(w => w.id === workerId);
         const timeSlot = timeSlots[slotIndex];
@@ -663,6 +679,9 @@ function Custom() {
             // Update staff assignments
             updateStaffAssignments(newSchedule);
         }
+        
+        // Reset touch drag state
+        setTouchDrag(null);
     };
     
     // Update staff assignments based on the schedule
@@ -823,6 +842,9 @@ function Custom() {
                     console.log("Workers successfully saved in the schedule");
                 }
                 
+                // Set hasBeenSaved to true to enable the View Schedule button
+                setHasBeenSaved(true);
+                
                 alert("Schedule saved successfully!");
             } else {
                 console.error("Failed to verify saved schedule");
@@ -864,56 +886,305 @@ function Custom() {
         }).filter(info => info !== null);
     };
     
-    // Debugging helper to inspect the current state of workers in the schedule
-    const debugScheduleWorkers = () => {
-        console.log("==== DEBUG SCHEDULE WORKERS ====");
-        let totalWorkers = 0;
-        
-        Object.entries(schedule).forEach(([day, slots]) => {
-            if (!slots) return;
-            
-            let dayWorkers = 0;
-            Object.entries(slots).forEach(([slotIndex, slotData]) => {
-                if (slotData?.workers?.length > 0) {
-                    dayWorkers += slotData.workers.length;
-                    totalWorkers += slotData.workers.length;
-                    console.log(`Day ${day}, Slot ${slotIndex}: ${slotData.workers.length} workers:`, slotData.workers);
-                    
-                    // Check if all workers exist in staff
-                    slotData.workers.forEach(workerId => {
-                        const worker = staff.find(w => String(w.id) === String(workerId));
-                        console.log(`  Worker ${workerId} exists in staff:`, worker ? `YES (${worker.name})` : "NO");
-                    });
-                }
-            });
-            
-            console.log(`Day ${day}: ${dayWorkers} total workers assigned`);
-        });
-        
-        console.log(`Total workers in schedule: ${totalWorkers}`);
-        console.log("==== END DEBUG SCHEDULE WORKERS ====");
+    // Navigate to the Final schedule view
+    const navigateToFinalView = () => {
+        navigate('/final'); // Navigate to the Final component route
     };
     
-    // Monitor schedule and staff changes
+    // IMPROVED MOBILE TOUCH SUPPORT IMPLEMENTATION
+    // ============================================
+
+    // Add global touch event listener for iPad compatibility
     useEffect(() => {
-        console.log("Schedule updated - checking for workers:");
+        // Add non-passive global listeners to handle touch events properly
+        const handleGlobalTouchMove = (e) => {
+            // If we're dragging, prevent default to stop iPad scrolling
+            if (touchDrag) {
+                e.preventDefault();
+            }
+        };
+
+        // Add the event listener with {passive: false} for iPad compatibility
+        document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
         
-        // Count workers in schedule
-        let workerCount = 0;
+        return () => {
+            // Clean up
+            document.removeEventListener('touchmove', handleGlobalTouchMove);
+            if (touchTimerRef.current) {
+                clearTimeout(touchTimerRef.current);
+            }
+            removeFloatingElement();
+        };
+    }, [touchDrag]);
+
+    // Store scroll position when touch starts to prevent accidental scrolling during drag
+    const storeScrollPosition = () => {
+        scrollPositionRef.current = {
+            x: window.scrollX,
+            y: window.scrollY
+        };
+    };
+
+    // Check if scroll position changed significantly during touch interaction
+    const hasScrolled = () => {
+        const threshold = 10; // pixels
+        return (
+            Math.abs(window.scrollX - scrollPositionRef.current.x) > threshold ||
+            Math.abs(window.scrollY - scrollPositionRef.current.y) > threshold
+        );
+    };
+
+    // Handle touch start on staff block - Improved for iPad
+    const handleTouchStart = (e, workerId) => {
+        // Prevent default to allow custom drag behavior on iPads
+        e.preventDefault();
         
-        Object.entries(schedule).forEach(([day, slots]) => {
-            if (!slots) return;
-            
-            Object.entries(slots).forEach(([slotIndex, slotData]) => {
-                if (slotData?.workers?.length > 0) {
-                    workerCount += slotData.workers.length;
-                    console.log(`Found ${slotData.workers.length} workers in day ${day}, slot ${slotIndex}`);
+        const worker = staff.find(w => w.id === workerId);
+        
+        if (!worker || worker.assigned >= worker.maxDays) return;
+        
+        // Store the starting touch position
+        storeScrollPosition();
+        
+        // Start a timer to differentiate between tap and drag
+        touchTimerRef.current = setTimeout(() => {
+            // Only set as drag if we haven't scrolled
+            if (!hasScrolled()) {
+                // Set the worker being dragged
+                setTouchDrag(workerId);
+                
+                // Add visual feedback
+                if (e.currentTarget) {
+                    e.currentTarget.classList.add('touch-dragging');
+                    dragSourceRef.current = e.currentTarget;
                 }
-            });
+
+                // Create a floating clone for visual feedback
+                createFloatingDragElement(e, worker.name);
+            }
+        }, 300); // 300ms hold time to start drag
+    };
+
+    // Create a floating element that follows the touch for visual feedback
+    const createFloatingDragElement = (e, workerName) => {
+        // Remove any existing floating elements
+        const existingFloating = document.getElementById('floating-drag-element');
+        if (existingFloating) {
+            document.body.removeChild(existingFloating);
+        }
+        
+        // Create new floating element
+        const floatingEl = document.createElement('div');
+        floatingEl.id = 'floating-drag-element';
+        floatingEl.className = 'floating-worker-block';
+        floatingEl.textContent = workerName;
+        
+        // Position at touch point
+        const touch = e.touches[0];
+        floatingEl.style.left = `${touch.clientX - 50}px`;
+        floatingEl.style.top = `${touch.clientY - 25}px`;
+        floatingEl.style.position = 'fixed'; // Ensure fixed positioning
+        floatingEl.style.pointerEvents = 'none'; // Ensure it doesn't interfere with touch
+        
+        // Append to body
+        document.body.appendChild(floatingEl);
+    };
+
+    // Update floating element position during touch move
+    const updateFloatingElementPosition = (e) => {
+        const floatingEl = document.getElementById('floating-drag-element');
+        if (floatingEl && e.touches && e.touches[0]) {
+            const touch = e.touches[0];
+            floatingEl.style.left = `${touch.clientX - 50}px`;
+            floatingEl.style.top = `${touch.clientY - 25}px`;
+        }
+    };
+
+    // Remove floating element
+    const removeFloatingElement = () => {
+        const floatingEl = document.getElementById('floating-drag-element');
+        if (floatingEl) {
+            document.body.removeChild(floatingEl);
+        }
+    };
+
+    // Handle touch move - Improved for iPad
+    const handleTouchMove = (e) => {
+        // Always prevent default for iPad compatibility when dragging
+        if (touchDrag) {
+            e.preventDefault();
+        }
+        
+        // If we're not dragging yet, check if we've scrolled to cancel the timer
+        if (!touchDrag && touchTimerRef.current) {
+            if (hasScrolled()) {
+                clearTimeout(touchTimerRef.current);
+                touchTimerRef.current = null;
+            }
+            return;
+        }
+        
+        // If we are dragging, update the floating element position
+        if (touchDrag) {
+            updateFloatingElementPosition(e);
+            
+            // Check if touch is over a valid drop target
+            findAndHighlightDropTarget(e.touches[0]);
+        }
+    };
+
+    // Fallback function for finding elements at a point (for iPads without elementsFromPoint)
+    const findElementsAtPoint = (x, y) => {
+        const elements = [];
+        const allElements = document.querySelectorAll('.weekly-schedule-cell');
+        
+        allElements.forEach(element => {
+            const rect = element.getBoundingClientRect();
+            if (
+                x >= rect.left &&
+                x <= rect.right &&
+                y >= rect.top &&
+                y <= rect.bottom
+            ) {
+                elements.push(element);
+            }
         });
         
-        console.log(`Total workers in schedule: ${workerCount}`);
-    }, [schedule]);
+        return elements;
+    };
+
+    // Find and highlight drop target based on touch position - iPad compatible version
+    const findAndHighlightDropTarget = (touch) => {
+        // Remove any existing highlights
+        document.querySelectorAll('.valid-drop-target, .invalid-drop-target').forEach(el => {
+            el.classList.remove('valid-drop-target', 'invalid-drop-target');
+        });
+        
+        // Use document.elementsFromPoint, but fall back to a different method if not available
+        let elementsUnderTouch;
+        
+        if (document.elementsFromPoint) {
+            elementsUnderTouch = document.elementsFromPoint(touch.clientX, touch.clientY);
+        } else {
+            // Fallback for older iPads that might not support elementsFromPoint
+            elementsUnderTouch = findElementsAtPoint(touch.clientX, touch.clientY);
+        }
+        
+        // Find cell element
+        const cellElement = elementsUnderTouch.find(el => 
+            el.classList.contains('weekly-schedule-cell')
+        );
+        
+        if (cellElement) {
+            // Extract day and slot indices from data attributes
+            const dayIndex = parseInt(cellElement.getAttribute('data-day'));
+            const slotIndex = parseInt(cellElement.getAttribute('data-slot'));
+            
+            if (!isNaN(dayIndex) && !isNaN(slotIndex)) {
+                // Perform checks to see if this is a valid drop target
+                const worker = staff.find(w => w.id === touchDrag);
+                const timeSlot = timeSlots[slotIndex];
+                const day = dayIndex.toString();
+                const slot = schedule[day]?.[slotIndex];
+                
+                if (worker && timeSlot && slot) {
+                    const isAvailable = isWorkerAvailable(worker, dayIndex, {
+                        start: timeSlot.startTime,
+                        end: timeSlot.endTime
+                    });
+                    
+                    const isSlotFull = slot.workers?.length >= slot.required;
+                    const isAlreadyAssigned = slot.workers?.includes(touchDrag);
+                    
+                    if (isAvailable && !isSlotFull && !isAlreadyAssigned) {
+                        cellElement.classList.add('valid-drop-target');
+                    } else {
+                        cellElement.classList.add('invalid-drop-target');
+                    }
+                }
+            }
+        }
+    };
+
+    // Handle touch end - enhanced for iPad
+    const handleTouchEnd = (e) => {
+        // Clear the touch timer if it exists
+        if (touchTimerRef.current) {
+            clearTimeout(touchTimerRef.current);
+            touchTimerRef.current = null;
+        }
+        
+        // Remove floating element
+        removeFloatingElement();
+        
+        // If we were dragging, try to drop
+        if (touchDrag) {
+            // Find the drop target
+            const touch = e.changedTouches[0];
+            
+            // Use document.elementsFromPoint or fallback
+            let elementsUnderTouch;
+            if (document.elementsFromPoint) {
+                elementsUnderTouch = document.elementsFromPoint(touch.clientX, touch.clientY);
+            } else {
+                elementsUnderTouch = findElementsAtPoint(touch.clientX, touch.clientY);
+            }
+            
+            const cellElement = elementsUnderTouch.find(el => 
+                el.classList.contains('weekly-schedule-cell')
+            );
+            
+            // Reset drag source styling
+            if (dragSourceRef.current) {
+                dragSourceRef.current.classList.remove('touch-dragging');
+                dragSourceRef.current = null;
+            }
+            
+            if (cellElement) {
+                // Extract day and slot indices from data attributes
+                const dayIndex = parseInt(cellElement.getAttribute('data-day'));
+                const slotIndex = parseInt(cellElement.getAttribute('data-slot'));
+                
+                if (!isNaN(dayIndex) && !isNaN(slotIndex)) {
+                    // Create a more complete synthetic event that will work better on iPad
+                    const syntheticEvent = {
+                        preventDefault: () => {},
+                        dataTransfer: {
+                            getData: () => touchDrag
+                        },
+                        currentTarget: cellElement
+                    };
+                    
+                    // Execute drop logic with our synthetic event
+                    handleDrop(syntheticEvent, dayIndex, slotIndex);
+                }
+            }
+            
+            // Reset drag state
+            setTouchDrag(null);
+        }
+    };
+
+    // Handle touch cancel
+    const handleTouchCancel = (e) => {
+        // Clear the touch timer if it exists
+        if (touchTimerRef.current) {
+            clearTimeout(touchTimerRef.current);
+            touchTimerRef.current = null;
+        }
+        
+        // Remove floating element
+        removeFloatingElement();
+        
+        // Reset drag source styling
+        if (dragSourceRef.current) {
+            dragSourceRef.current.classList.remove('touch-dragging');
+            dragSourceRef.current = null;
+        }
+        
+        // Reset drag state
+        setTouchDrag(null);
+        };
 
     if (loading) {
         return <div className="loading">Loading...</div>;
@@ -951,6 +1222,14 @@ function Custom() {
                             disabled={saving || timeSlots.length === 0}
                         >
                             {saving ? 'Saving...' : 'Save Schedule'}
+                        </button>
+                        
+                        <button 
+                            className="view-schedule-button" 
+                            onClick={navigateToFinalView}
+                            disabled={!hasBeenSaved}
+                        >
+                            View Schedule
                         </button>
                     </div>
                     
@@ -1001,6 +1280,8 @@ function Custom() {
                                                         <div
                                                             key={`cell-${dayIndex}-${slotIndex}`}
                                                             className={`weekly-schedule-cell ${isAvailable ? 'available' : 'unavailable'} ${workerInfo ? 'has-workers' : 'empty'}`}
+                                                            data-day={dayIndex}
+                                                            data-slot={slotIndex}
                                                             onClick={() => handleCellClick(dayIndex, slotIndex)}
                                                             onDragOver={(e) => isAvailable && handleDragOver(e, dayIndex, slotIndex)}
                                                             onDragLeave={handleDragLeave}
@@ -1044,6 +1325,11 @@ function Custom() {
                                         draggable={worker.assigned < worker.maxDays}
                                         onDragStart={(e) => handleDragStart(e, worker.id)}
                                         onDragEnd={handleDragEnd}
+                                        onTouchStart={(e) => handleTouchStart(e, worker.id)}
+                                        onTouchMove={(e) => handleTouchMove(e)}
+                                        onTouchEnd={(e) => handleTouchEnd(e)}
+                                        onTouchCancel={(e) => handleTouchCancel(e)}
+                                        data-worker-id={worker.id} // Add this attribute to help with touch identification
                                     >
                                         <div className="weekly-staff-name">{worker.name}</div>
                                         <div className="weekly-staff-status">
@@ -1053,7 +1339,7 @@ function Custom() {
                                 ))}
                             </div>
                             <div className="weekly-staff-help">
-                                <p>Drag a worker to a time slot to assign them. Workers will only be assigned if they are available during that time.</p>
+                                <p>Drag a worker to a time slot to assign them. On mobile, tap and hold a worker, then drag to a time slot. Workers will only be assigned if they are available during that time.</p>
                             </div>
                         </div>
                     </div>
@@ -1150,6 +1436,68 @@ function Custom() {
                     </div>
                 </div>
             )}
+
+            {/* CSS for mobile touch drag-and-drop */}
+            <style jsx>{`
+                /* Touch dragging styles */
+                .touch-dragging {
+                    opacity: 0.5;
+                }
+                
+                .floating-worker-block {
+                    position: fixed;
+                    z-index: 1000;
+                    background-color: #4a90e2;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 4px;
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                    pointer-events: none;
+                    width: 100px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                
+                /* Make sure valid and invalid drop targets are visible on touch devices */
+                .valid-drop-target {
+                    background-color: rgba(76, 175, 80, 0.3) !important;
+                    border: 2px dashed #4CAF50 !important;
+                }
+                
+                .invalid-drop-target {
+                    background-color: rgba(244, 67, 54, 0.3) !important;
+                    border: 2px dashed #F44336 !important;
+                }
+                
+                /* Disable default touch behaviors that interfere with drag and drop */
+                .weekly-staff-block {
+                    -webkit-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                    touch-action: none; /* Prevent Safari from handling touches itself */
+                }
+            `}</style>
+
+            {/* Add this non-JSX script to disable browser default behaviors that interfere with custom touch handling */}
+            <script dangerouslySetInnerHTML={{
+                __html: `
+                    // Disable unwanted default touch behaviors on iPad
+                    document.addEventListener('touchstart', function(e) {
+                        if (e.target.closest('.weekly-staff-block')) {
+                            // We want to handle this touch specially for drag-and-drop
+                            e.preventDefault();
+                        }
+                    }, {passive: false});
+
+                    // Disable unwanted text selection during touch drag
+                    document.addEventListener('touchmove', function(e) {
+                        if (document.getElementById('floating-drag-element')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    }, {passive: false});
+                `
+            }} />
         </div>
     );
 }

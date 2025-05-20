@@ -53,7 +53,8 @@ body {
 
 .add-time-slot-button,
 .clear-schedule-button,
-.save-schedule-button {
+.save-schedule-button,
+.view-schedule-button {
     padding: 10px 16px;
     border-radius: 4px;
     font-weight: 500;
@@ -87,8 +88,17 @@ body {
     background-color: #2f855a;
 }
 
+.view-schedule-button {
+    background-color: #805ad5;
+}
+
+.view-schedule-button:hover {
+    background-color: #6b46c1;
+}
+
 .clear-schedule-button:disabled,
-.save-schedule-button:disabled {
+.save-schedule-button:disabled,
+.view-schedule-button:disabled {
     background-color: #ccc;
     cursor: not-allowed;
 }
@@ -426,6 +436,107 @@ body {
     font-style: italic;
 }
 
+/* Schedule Table View */
+.schedule-table-view {
+    margin-top: 20px;
+    overflow-x: auto;
+    width: 100%;
+}
+
+.schedule-table-container {
+    min-width: 750px;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #000;
+    background-color: white;
+    table-layout: fixed;
+}
+
+.schedule-table th,
+.schedule-table td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: center;
+}
+
+.schedule-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+.employee-name-header {
+    width: 150px;
+    background-color: #000 !important;
+    color: white;
+    font-weight: bold;
+    text-align: left !important;
+    padding-left: 15px !important;
+}
+
+.day-header {
+    position: relative;
+    vertical-align: middle;
+}
+
+.day-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.day-date {
+    font-size: 0.9em;
+}
+
+.employee-name {
+    background-color: #a4cafe;
+    font-weight: bold;
+    text-align: left !important;
+    padding-left: 15px !important;
+    color: #000;
+}
+
+.shift-cell {
+    background-color: #e6f7ff;
+}
+
+.shift-cell.has-shift {
+    background-color: #daffeb;
+    color: #000;
+    font-weight: bold;
+}
+
+/* Tuesday column highlighting (like in your image) */
+.schedule-table th:nth-child(3),
+.schedule-table td:nth-child(3) {
+    background-color: #ffcccc;
+}
+
+/* Preserve the shift-cell background color when it has a shift, even on the highlighted day */
+.schedule-table td:nth-child(3).shift-cell.has-shift {
+    background-color: #daffeb;
+}
+
+/* Highlight row on hover */
+.schedule-table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Add zebra striping for readability */
+.schedule-table tbody tr:nth-child(even) .employee-name {
+    background-color: #90cdf4;
+}
+
+.schedule-table tbody tr:nth-child(even) .shift-cell {
+    background-color: #f0f9ff;
+}
+
+.schedule-table tbody tr:nth-child(even) .shift-cell.has-shift {
+    background-color: #c6f6d5;
+}
+
 /* Modal Styles */
 .modal-overlay {
     position: fixed;
@@ -556,6 +667,128 @@ body {
     font-size: 16px;
 }
 
+/* Touch dragging styles */
+.touch-dragging {
+    opacity: 0.5;
+}
+
+.floating-worker-block {
+    position: fixed;
+    z-index: 1000;
+    background-color: #4a90e2;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    width: 100px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Mobile touch-specific styles */
+@media (max-width: 768px) {
+    .weekly-schedule-workspace {
+        flex-direction: column;
+    }
+    
+    .weekly-schedule-grid-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .weekly-schedule-grid {
+        min-width: 700px; /* Ensure grid is scrollable on small screens */
+    }
+    
+    .weekly-staff-block {
+        padding: 15px; /* Larger touch target */
+        margin-bottom: 10px;
+    }
+    
+    .weekly-time-label {
+        min-width: 80px;
+    }
+    
+    .weekly-schedule-cell {
+        min-height: 60px; /* Taller cells for touch targets */
+    }
+    
+    .remove-worker-button {
+        width: 30px;
+        height: 30px;
+        font-size: 20px;
+    }
+    
+    .schedule-table-container {
+        font-size: 0.9em;
+    }
+    
+    .schedule-table th,
+    .schedule-table td {
+        padding: 6px 4px;
+    }
+    
+    .employee-name-header {
+        width: 100px;
+    }
+}
+
+/* iPad specific styles */
+@supports (-webkit-touch-callout: none) {
+    /* This only applies to iOS devices */
+    .weekly-schedule-workspace {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .weekly-schedule-grid-container {
+        touch-action: pan-x pan-y; /* Allow scrolling but no zoom */
+    }
+    
+    /* Enhanced visible feedback for touch states */
+    .valid-drop-target {
+        background-color: rgba(76, 175, 80, 0.4) !important;
+        border: 3px solid #4CAF50 !important;
+        box-shadow: 0 0 10px rgba(76, 175, 80,0.7) !important;
+    }
+    
+    .invalid-drop-target {
+        background-color: rgba(244, 67, 54, 0.4) !important;
+        border: 3px solid #F44336 !important;
+        box-shadow: 0 0 10px rgba(244, 67, 54, 0.7) !important;
+    }
+    
+    .touch-dragging {
+        opacity: 0.4;
+        transform: scale(0.95);
+    }
+    
+    /* Enhance floating element for better visibility */
+    .floating-worker-block {
+        font-size: 16px;
+        padding: 12px 18px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
+        border: 2px solid white;
+    }
+    
+    /* Make touch targets even larger on iPad */
+    .weekly-staff-block {
+        padding: 20px 15px;
+        margin-bottom: 15px;
+        min-height: 60px;
+    }
+    
+    .weekly-schedule-cell {
+        min-height: 70px;
+    }
+    
+    .remove-worker-button {
+        width: 35px;
+        height: 35px;
+        font-size: 22px;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 1200px) {
     .weekly-schedule-workspace {
@@ -583,6 +816,15 @@ body {
         grid-template-columns: repeat(3, 1fr); /* Adjusted to 3 columns */
         max-height: none;
         height: auto;
+    }
+    
+    .schedule-controls {
+        flex-wrap: wrap;
+    }
+    
+    .schedule-controls button {
+        flex: 1;
+        min-width: 120px;
     }
 }
 

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from "./Components/Layout";
 import App from "./Components/App.jsx";
 import Custom from "./Components/Custom.jsx";
+import Final from "./Components/Final.jsx"; // Import the Final component
 import Login from './Components/Login';
 import Signup from './Components/Signup';
 
@@ -28,6 +29,14 @@ function AppRoutes() {
           element={
             <PrivateRoute>
               <Custom />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/final" 
+          element={
+            <PrivateRoute>
+              <Final />
             </PrivateRoute>
           } 
         />

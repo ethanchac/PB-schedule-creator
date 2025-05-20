@@ -1,0 +1,203 @@
+/* Final.css with completely unique class names to prevent style interference */
+
+/* Main container */
+.final_view_container {
+    padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+    font-family: Arial, sans-serif;
+}
+
+/* Title styling */
+.final_view_title {
+    color: #1a365d;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Table wrapper for horizontal scrolling if needed */
+.final_view_table_wrapper {
+    margin-top: 20px;
+    overflow-x: auto;
+    width: 100%;
+}
+
+/* Table container with minimum width */
+.final_view_table_container {
+    min-width: 750px;
+}
+
+/* Schedule table styling */
+.final_view_schedule_table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #000;
+    background-color: white;
+    table-layout: fixed;
+}
+
+/* All table cells */
+.final_view_schedule_table th,
+.final_view_schedule_table td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: center;
+    height: 40px;
+}
+
+/* All table headers */
+.final_view_schedule_table th {
+    background-color: #FFD700; /* Gold color for all headers */
+    font-weight: bold;
+    color: #000;
+}
+
+/* Override for Tuesday - leaving commented out but you can uncomment if needed */
+/* .final_view_schedule_table th:nth-child(3) {
+    background-color: #FFCCCC;
+} */
+
+/* Employee header styling */
+.final_view_employee_header {
+    width: 150px;
+    background-color: #000 !important;
+    color: white !important;
+    font-weight: bold;
+    text-align: left !important;
+    padding-left: 15px !important;
+    vertical-align: middle;
+}
+
+/* Day header styling */
+.final_view_day_header {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Employee name cell styling */
+.final_view_employee_name {
+    background-color: #ADD8E6; /* Light blue */
+    font-weight: bold;
+    text-align: center !important;
+    color: #000;
+}
+
+/* Regular shift cell */
+.final_view_shift_cell {
+    background-color: #E6E6FA; /* Light lavender */
+}
+
+/* Cells with assigned shifts */
+.final_view_shift_cell.final_view_has_shift {
+    background-color: #DAFFEB; /* Light green */
+    color: #000;
+    font-weight: normal;
+}
+
+/* Footer container */
+.final_view_footer {
+    margin-top: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Last updated text */
+.final_view_update_text {
+    flex: 1;
+    color: #718096;
+    font-style: italic;
+}
+
+/* Button styling */
+.final_view_back_button,
+.final_view_print_button {
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    color: white;
+}
+
+/* Back button */
+.final_view_back_button {
+    background-color: #4a5568;
+}
+
+.final_view_back_button:hover {
+    background-color: #2d3748;
+}
+
+/* Print button */
+.final_view_print_button {
+    background-color: #805ad5;
+}
+
+.final_view_print_button:hover {
+    background-color: #6b46c1;
+}
+
+/* Status messages */
+.final_view_loading,
+.final_view_error {
+    text-align: center;
+    padding: 40px;
+    font-size: 18px;
+}
+
+.final_view_error {
+    color: #e53e3e;
+}
+
+/* Print styles */
+@media print {
+    .final_view_footer {
+        display: none;
+    }
+    
+    .final_view_container {
+        padding: 0;
+    }
+    
+    .final_view_schedule_table {
+        border: 1px solid #000;
+    }
+    
+    .final_view_schedule_table th, 
+    .final_view_schedule_table td {
+        border: 0.5px solid #000;
+    }
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .final_view_table_container {
+        font-size: 0.9em;
+    }
+    
+    .final_view_schedule_table th,
+    .final_view_schedule_table td {
+        padding: 6px 4px;
+    }
+    
+    .final_view_employee_header {
+        width: 100px;
+    }
+    
+    .final_view_footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .final_view_back_button,
+    .final_view_print_button {
+        width: 100%;
+    }
+}
