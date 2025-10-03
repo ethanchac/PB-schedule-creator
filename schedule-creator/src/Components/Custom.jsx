@@ -26,7 +26,6 @@ function Custom() {
     const [timeSlots, setTimeSlots] = useState([]);
     const [schedule, setSchedule] = useState({});
     const [currentDrag, setCurrentDrag] = useState(null);
-    const [saving, setSaving] = useState(false);
     const [currentWeek, setCurrentWeek] = useState([]);
     const [hasBeenSaved, setHasBeenSaved] = useState(false);
     
@@ -111,25 +110,25 @@ function Custom() {
         if (timeSlots.length > 0 && currentWeek.length > 0) {
             // Create a deep copy of the existing schedule to preserve workers
             const newSchedule = JSON.parse(JSON.stringify(schedule));
-            
+
             // For each day
             currentWeek.forEach((day, dayIndex) => {
                 const dayStr = dayIndex.toString();
-                
+
                 // Initialize day if it doesn't exist
                 if (!newSchedule[dayStr]) {
                     newSchedule[dayStr] = {};
                 }
-                
+
                 // For each time slot
                 timeSlots.forEach((slot, slotIndex) => {
                     const slotStr = slotIndex.toString();
-                    
+
                     // Preserve existing workers if the slot already exists
                     if (newSchedule[dayStr][slotStr]) {
                         // Update other slot properties but keep workers
                         const existingWorkers = newSchedule[dayStr][slotStr].workers || [];
-                        
+
                         newSchedule[dayStr][slotStr] = {
                             workers: existingWorkers,
                             required: slot.requiredWorkers,
@@ -146,7 +145,7 @@ function Custom() {
                         };
                     }
                 });
-                
+
                 // Clean up slots that no longer exist in timeSlots
                 Object.keys(newSchedule[dayStr]).forEach(slotIndex => {
                     if (parseInt(slotIndex) >= timeSlots.length) {
@@ -154,14 +153,27 @@ function Custom() {
                     }
                 });
             });
-            
+
             // Update the schedule state
             setSchedule(newSchedule);
-            
+
             // Log the updated schedule
             console.log("Schedule structure updated:", newSchedule);
         }
     }, [timeSlots, currentWeek]);
+
+    // Auto-save whenever schedule or timeSlots change
+    useEffect(() => {
+        // Only auto-save if we have data and user is logged in
+        if (currentUser && timeSlots.length > 0 && Object.keys(schedule).length > 0) {
+            // Debounce the save to avoid too many writes
+            const timeoutId = setTimeout(() => {
+                autoSaveSchedule();
+            }, 1000); // Save 1 second after last change
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [schedule, timeSlots, currentUser]);
 
     // Generate array of dates for current week
     const generateWeekDays = (date) => {
@@ -408,50 +420,123 @@ function Custom() {
         return `${hour.toString().padStart(2, '0')}:00`;
     };
     
+    // Check if a worker is already assigned to any slot on a given day
+    const isWorkerAssignedOnDay = (workerId, dayIndex) => {
+        const day = dayIndex.toString();
+
+        if (!schedule[day]) return false;
+
+        // Check all slots for this day
+        for (const slotIndex in schedule[day]) {
+            const slot = schedule[day][slotIndex];
+            if (slot && slot.workers && slot.workers.includes(workerId)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     // Check if a worker is available at a specific day and time slot
     const isWorkerAvailable = (worker, dayIndex, timeSlot) => {
         if (!worker || !timeSlot) return false;
-        
+
         // Get the day number (0-6, Sunday-Saturday)
         const day = dayIndex;
-        
+
         // If worker isn't available on this day, return false
         const dayAvailability = worker.availability?.[day];
         if (!dayAvailability || !dayAvailability.available) {
             return false;
         }
-        
+
         // If worker is available all day, they can work any shift
         if (dayAvailability.allDay) {
             return true;
         }
-        
+
         // Extract start and end times from timeSlot object
         // Handle both {start, end} and {startTime, endTime} formats
         const startTimeStr = timeSlot.start || timeSlot.startTime;
         const endTimeStr = timeSlot.end || timeSlot.endTime;
-        
+
         if (!startTimeStr || !endTimeStr) {
             console.error("Missing start or end time in timeSlot", timeSlot);
             return false;
         }
-        
-        // Parse time slot times
-        const slotStartHour = parseInt(startTimeStr.split(':')[0], 10);
-        const slotEndHour = parseInt(endTimeStr.split(':')[0], 10);
-        
+
+        // Parse time slot times - handle minutes too
+        const [startHour, startMin] = startTimeStr.split(':').map(Number);
+        const [endHour, endMin] = endTimeStr.split(':').map(Number);
+
         // Convert worker's availability hours to numbers if they're strings
-        const availableHours = dayAvailability.hours.map(h => 
+        const availableHours = dayAvailability.hours.map(h =>
             typeof h === 'string' ? parseInt(h, 10) : h
         );
-        
-        // Check if all hours in the time slot are in the worker's availability
-        for (let hour = slotStartHour; hour < slotEndHour; hour++) {
+
+        // Find the min and max available hours
+        if (availableHours.length === 0) return false;
+
+        const minAvailableHour = Math.min(...availableHours);
+        const maxAvailableHour = Math.max(...availableHours);
+
+        // IMPORTANT: Hour semantics - CORRECTED INTERPRETATION
+        // The UI shows hour labels like "6 AM", "2 PM" which users interpret as time points
+        // However, these are stored as hour blocks in the availability array
+        //
+        // When a user clicks "6 AM" through "2 PM", they mean:
+        // "I am available from 6:00 AM until 2:00 PM"
+        //
+        // But the system stores this as hour blocks [6,7,8,9,10,11,12,13,14]
+        // where hour 14 represents "2 PM" in the UI
+        //
+        // To fix this UX issue, we interpret maxAvailableHour as the END time:
+        // - If maxAvailableHour = 14, the worker is available UNTIL 14:00 (2 PM)
+        // - NOT available to work DURING hour 14 (2 PM - 3 PM)
+        //
+        // Therefore: availableUntil = maxAvailableHour (not maxAvailableHour + 1)
+
+        const availableUntilHour = maxAvailableHour;
+        const availableUntilMin = 0;
+
+        console.log(`Checking ${worker.name} availability:`, {
+            availableHours,
+            minAvailableHour,
+            maxAvailableHour,
+            shiftStart: `${startHour}:${startMin}`,
+            shiftEnd: `${endHour}:${endMin}`,
+            availableUntil: `${availableUntilHour}:${availableUntilMin}`,
+            explanation: `Worker available from ${minAvailableHour}:00 until ${maxAvailableHour}:00 (max hour ${maxAvailableHour} means available UNTIL ${maxAvailableHour}:00)`
+        });
+
+        // Check if shift starts before worker's availability
+        if (startHour < minAvailableHour || (startHour === minAvailableHour && startMin < 0)) {
+            console.log(`❌ Shift starts too early (${startHour}:${startMin} < ${minAvailableHour}:00)`);
+            return false;
+        }
+
+        // Check if shift ends after worker's availability
+        // The shift must end at or before availableUntilHour:availableUntilMin
+        if (endHour > availableUntilHour || (endHour === availableUntilHour && endMin > availableUntilMin)) {
+            console.log(`❌ Shift ends too late: ${endHour}:${endMin} > ${availableUntilHour}:${availableUntilMin}`);
+            return false;
+        }
+
+        // Also check that all hours that the shift spans through are available
+        // A shift from 6:00 to 14:00 needs hours [6,7,8,9,10,11,12,13]
+        const requiredHours = [];
+        for (let hour = startHour; hour < endHour; hour++) {
+            requiredHours.push(hour);
             if (!availableHours.includes(hour)) {
+                console.log(`❌ Hour ${hour} not in available hours`);
+                console.log(`Required hours for shift: [${requiredHours.join(', ')}]`);
+                console.log(`Available hours: [${availableHours.sort((a, b) => a - b).join(', ')}]`);
+                console.log(`Missing hours: [${requiredHours.filter(h => !availableHours.includes(h)).join(', ')}]`);
                 return false;
             }
         }
-        
+
+        console.log(`✅ Worker is available for this shift`);
         return true;
     };
     
@@ -589,30 +674,31 @@ function Custom() {
     // Handle drag over a drop target
     const handleDragOver = (e, dayIndex, slotIndex) => {
         e.preventDefault();
-        
+
         if (!currentDrag) return;
-        
+
         const worker = staff.find(w => w.id === currentDrag);
         const timeSlot = timeSlots[slotIndex];
         const day = dayIndex.toString();
         const slot = schedule[day]?.[slotIndex];
-        
+
         if (!worker || !timeSlot || !slot) {
             e.dataTransfer.dropEffect = "none";
             e.currentTarget.classList.add('invalid-drop-target');
             return;
         }
-        
+
         // Check if drop is allowed
         const isAvailable = isWorkerAvailable(worker, dayIndex, {
             start: timeSlot.startTime,
             end: timeSlot.endTime
         });
-        
+
         const isSlotFull = slot.workers?.length >= slot.required;
         const isAlreadyAssigned = slot.workers?.includes(currentDrag);
-        
-        if (isAvailable && !isSlotFull && !isAlreadyAssigned) {
+        const isAlreadyAssignedOnDay = isWorkerAssignedOnDay(currentDrag, dayIndex);
+
+        if (isAvailable && !isSlotFull && !isAlreadyAssigned && !isAlreadyAssignedOnDay) {
             e.dataTransfer.dropEffect = "move";
             e.currentTarget.classList.add('valid-drop-target');
         } else {
@@ -660,17 +746,18 @@ function Custom() {
         }
         
         const slot = schedule[day][slotIndex];
-        
+
         // Check if drop is allowed
         const isAvailable = isWorkerAvailable(worker, dayIndex, {
             start: timeSlot.startTime,
             end: timeSlot.endTime
         });
-        
+
         const isSlotFull = slot.workers?.length >= slot.required;
         const isAlreadyAssigned = slot.workers?.includes(workerId);
-        
-        if (isAvailable && !isSlotFull && !isAlreadyAssigned) {
+        const isAlreadyAssignedOnDay = isWorkerAssignedOnDay(workerId, dayIndex);
+
+        if (isAvailable && !isSlotFull && !isAlreadyAssigned && !isAlreadyAssignedOnDay) {
             // Add worker to this slot
             const newSchedule = JSON.parse(JSON.stringify(schedule));
             newSchedule[day][slotIndex].workers = [...(slot.workers || []), workerId];
@@ -757,7 +844,7 @@ function Custom() {
     const clearSchedule = () => {
         if (window.confirm("Are you sure you want to clear the entire schedule? This cannot be undone.")) {
             const newSchedule = JSON.parse(JSON.stringify(schedule));
-            
+
             // Remove all worker assignments but keep time slot structure
             Object.keys(newSchedule).forEach(day => {
                 if (newSchedule[day]) {
@@ -768,32 +855,136 @@ function Custom() {
                     });
                 }
             });
-            
+
             setSchedule(newSchedule);
-            
+
             // Update staff assignments
             updateStaffAssignments(newSchedule);
         }
     };
+
+    // Autofill schedule based on availability
+    const autofillSchedule = () => {
+        if (window.confirm("Autofill the schedule based on everyone's availability? This will assign workers to empty slots.")) {
+            const newSchedule = JSON.parse(JSON.stringify(schedule));
+
+            // Helper to check if worker is assigned on a specific day in the NEW schedule
+            const isWorkerAssignedOnDayInSchedule = (workerId, dayIndex, scheduleToCheck) => {
+                const day = dayIndex.toString();
+
+                if (!scheduleToCheck[day]) return false;
+
+                // Check all slots for this day
+                for (const slotIndex in scheduleToCheck[day]) {
+                    const slot = scheduleToCheck[day][slotIndex];
+                    if (slot && slot.workers && slot.workers.includes(workerId)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
+
+            // Create a copy of staff to track assignments during autofill
+            const staffAvailability = staff.map(worker => ({
+                ...worker,
+                tempAssigned: worker.assigned,
+                tempAssignments: {...(worker.assignments || {})}
+            }));
+
+            // Process each day
+            currentWeek.forEach((_, dayIndex) => {
+                const day = dayIndex.toString();
+
+                if (!newSchedule[day]) return;
+
+                // Process each time slot
+                timeSlots.forEach((timeSlot, slotIndex) => {
+                    const slot = newSchedule[day][slotIndex];
+
+                    if (!slot) return;
+
+                    // Calculate how many more workers are needed
+                    const currentWorkers = slot.workers?.length || 0;
+                    const needed = slot.required - currentWorkers;
+
+                    if (needed <= 0) return; // Slot is already full
+
+                    // Find available workers who can work this slot
+                    const availableWorkers = staffAvailability.filter(worker => {
+                        // Check if already assigned to this slot
+                        if (slot.workers?.includes(worker.id)) return false;
+
+                        // Check if worker is already assigned to another slot on this day in the NEW schedule
+                        if (isWorkerAssignedOnDayInSchedule(worker.id, dayIndex, newSchedule)) {
+                            console.log(`Worker ${worker.name} already assigned on day ${dayIndex}, skipping`);
+                            return false;
+                        }
+
+                        // Check if they've reached max days
+                        if (worker.tempAssigned >= worker.maxDays) return false;
+
+                        // Check availability for this day and time
+                        const available = isWorkerAvailable(worker, dayIndex, {
+                            start: timeSlot.startTime,
+                            end: timeSlot.endTime
+                        });
+
+                        if (!available) {
+                            console.log(`Worker ${worker.name} not available for slot ${timeSlot.startTime}-${timeSlot.endTime} on day ${dayIndex}`);
+                        }
+
+                        return available;
+                    });
+
+                    // Sort by least assigned first (distribute work fairly)
+                    availableWorkers.sort((a, b) => a.tempAssigned - b.tempAssigned);
+
+                    // Assign workers to fill the slot
+                    let assigned = 0;
+                    for (const worker of availableWorkers) {
+                        if (assigned >= needed) break;
+
+                        // Add worker to slot
+                        if (!slot.workers) slot.workers = [];
+                        slot.workers.push(worker.id);
+
+                        console.log(`Assigned worker ${worker.name} to slot ${slotIndex} on day ${dayIndex}`);
+
+                        // Update temporary tracking
+                        if (!worker.tempAssignments[day]) {
+                            worker.tempAssigned++;
+                            worker.tempAssignments[day] = [];
+                        }
+                        worker.tempAssignments[day].push(slotIndex);
+
+                        assigned++;
+                    }
+                });
+            });
+
+            setSchedule(newSchedule);
+            updateStaffAssignments(newSchedule);
+        }
+    };
     
-    // Save the schedule to Firebase with proper deep copying of workers array
-    const saveSchedule = async () => {
+    // Auto-save the schedule to Firebase with proper deep copying of workers array
+    const autoSaveSchedule = async () => {
         if (!currentUser) {
-            alert("You must be logged in to save the schedule");
+            console.warn("Cannot auto-save: No user logged in");
             return;
         }
-        
-        setSaving(true);
-        console.log("Starting save schedule process...");
-        
+
+        console.log("Auto-saving schedule...");
+
         try {
             // Create proper deep copies of all data structures
             let deepCopySchedule = JSON.parse(JSON.stringify(schedule));
             const deepCopyTimeSlots = JSON.parse(JSON.stringify(timeSlots));
-            
+
             // Ensure consistent ID types
             deepCopySchedule = ensureConsistentIds(deepCopySchedule);
-            
+
             console.log("Preparing schedule with the following workers assigned:");
             // Debug log to check workers arrays
             Object.entries(deepCopySchedule).forEach(([day, slots]) => {
@@ -803,7 +994,7 @@ function Custom() {
                     }
                 });
             });
-            
+
             // Create the schedule data object
             const scheduleData = {
                 id: 'custom-schedule',
@@ -812,49 +1003,16 @@ function Custom() {
                 updatedAt: new Date().toISOString(),
                 createdAt: new Date().toISOString()
             };
-            
+
             // Save to Firebase
             await saveAvailability(currentUser.uid, scheduleData);
-            
-            // Verify the save by immediately retrieving it
-            const allAvailabilityData = await getAllAvailability(currentUser.uid);
-            const savedSchedule = allAvailabilityData.find(item => item.id === 'custom-schedule');
-            
-            if (savedSchedule) {
-                console.log("Verified saved schedule:", savedSchedule);
-                
-                // Check if workers arrays were saved properly
-                let workersFound = false;
-                if (savedSchedule.schedule) {
-                    Object.entries(savedSchedule.schedule).forEach(([day, slots]) => {
-                        Object.entries(slots).forEach(([slotIndex, slotData]) => {
-                            if (slotData.workers && slotData.workers.length > 0) {
-                                workersFound = true;
-                                console.log(`Verified Day ${day}, Slot ${slotIndex}: Workers present:`, slotData.workers);
-                            }
-                        });
-                    });
-                }
-                
-                if (!workersFound) {
-                    console.warn("WARNING: Schedule saved, but no workers found in the saved data!");
-                } else {
-                    console.log("Workers successfully saved in the schedule");
-                }
-                
-                // Set hasBeenSaved to true to enable the View Schedule button
-                setHasBeenSaved(true);
-                
-                alert("Schedule saved successfully!");
-            } else {
-                console.error("Failed to verify saved schedule");
-                alert("Schedule may not have saved properly. Please check after reloading.");
-            }
+
+            // Set hasBeenSaved to true to enable the View Schedule button
+            setHasBeenSaved(true);
+
+            console.log("Schedule auto-saved successfully");
         } catch (err) {
-            console.error("Error saving schedule:", err);
-            alert(`Error saving schedule: ${err.message || 'Unknown error'}`);
-        } finally {
-            setSaving(false);
+            console.error("Error auto-saving schedule:", err);
         }
     };
     
@@ -1092,11 +1250,12 @@ function Custom() {
                         start: timeSlot.startTime,
                         end: timeSlot.endTime
                     });
-                    
+
                     const isSlotFull = slot.workers?.length >= slot.required;
                     const isAlreadyAssigned = slot.workers?.includes(touchDrag);
-                    
-                    if (isAvailable && !isSlotFull && !isAlreadyAssigned) {
+                    const isAlreadyAssignedOnDay = isWorkerAssignedOnDay(touchDrag, dayIndex);
+
+                    if (isAvailable && !isSlotFull && !isAlreadyAssigned && !isAlreadyAssignedOnDay) {
                         cellElement.classList.add('valid-drop-target');
                     } else {
                         cellElement.classList.add('invalid-drop-target');
@@ -1201,31 +1360,31 @@ function Custom() {
             {staff.length > 0 ? (
                 <div className="weekly-schedule-builder">
                     <div className="schedule-controls">
-                        <button 
-                            className="add-time-slot-button" 
+                        <button
+                            className="add-time-slot-button"
                             onClick={() => setShowTimeSlotModal(true)}
                         >
                             Add Time Slot
                         </button>
-                        
-                        <button 
-                            className="clear-schedule-button" 
+
+                        <button
+                            className="autofill-schedule-button"
+                            onClick={autofillSchedule}
+                            disabled={timeSlots.length === 0 || staff.length === 0}
+                        >
+                            Autofill
+                        </button>
+
+                        <button
+                            className="clear-schedule-button"
                             onClick={clearSchedule}
                             disabled={timeSlots.length === 0}
                         >
                             Clear Schedule
                         </button>
-                        
-                        <button 
-                            className="save-schedule-button" 
-                            onClick={saveSchedule}
-                            disabled={saving || timeSlots.length === 0}
-                        >
-                            {saving ? 'Saving...' : 'Save Schedule'}
-                        </button>
-                        
-                        <button 
-                            className="view-schedule-button" 
+
+                        <button
+                            className="view-schedule-button"
                             onClick={navigateToFinalView}
                             disabled={!hasBeenSaved}
                         >

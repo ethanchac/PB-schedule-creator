@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Schedule.css';
 
-function Schedule() {
+function Schedule({ selectedWorker, scheduleData }) {
   const [currDay, setCurrDay] = useState(null);
   const [currentWeek, setCurrentWeek] = useState([]);
 
@@ -59,6 +59,38 @@ function Schedule() {
   const hours = Array.from({ length: 18 }, (_, i) => i + 5); // 5 AM to 10 PM
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+  // Check if a cell should be highlighted for the selected worker
+  const isCellHighlighted = (dayIndex, hour) => {
+    if (!selectedWorker || !scheduleData || !scheduleData.schedule) return false;
+
+    const schedule = scheduleData.schedule;
+    const timeSlots = scheduleData.timeSlots;
+
+    // Check each time slot
+    for (let slotIndex = 0; slotIndex < timeSlots.length; slotIndex++) {
+      const slot = timeSlots[slotIndex];
+      const daySchedule = schedule[dayIndex.toString()];
+
+      if (daySchedule && daySchedule[slotIndex]) {
+        const assignedWorkers = daySchedule[slotIndex].workers || [];
+
+        // Check if selected worker is assigned to this slot
+        if (assignedWorkers.includes(selectedWorker.id)) {
+          // Parse slot times
+          const startHour = parseInt(slot.startTime.split(':')[0]);
+          const endHour = parseInt(slot.endTime.split(':')[0]);
+
+          // Check if current hour falls within this slot
+          if (hour >= startHour && hour < endHour) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  };
+
   return (
     <div className="cal-schedule-container">
       <div className="cal-schedule-header">
@@ -66,6 +98,11 @@ function Schedule() {
           {currentWeek.length > 0 ? formatDate(currentWeek[0]) : 'Loading...'}
         </div>
         <div className="cal-time-range">5 a.m. - 10 p.m.</div>
+        {selectedWorker && (
+          <div className="cal-selected-worker">
+            Viewing: <strong>{selectedWorker.name}</strong>
+          </div>
+        )}
       </div>
 
       <div className="cal-schedule-grid">
@@ -96,7 +133,7 @@ function Schedule() {
               {hours.map((hour) => (
                 <div
                   key={`cell-${index}-${hour}`}
-                  className="cal-calendar-cell"
+                  className={`cal-calendar-cell ${isCellHighlighted(index, hour) ? 'highlighted' : ''}`}
                 ></div>
               ))}
             </div>

@@ -16,6 +16,7 @@ function Final() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentWeek, setCurrentWeek] = useState([]);
+    const [viewMode, setViewMode] = useState('table'); // 'table' or 'timeslot'
     
     // Generate array of dates for current week
     const generateWeekDays = (date) => {
@@ -173,48 +174,140 @@ function Final() {
     // Calculate the day order for display (Monday to Sunday)
     const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday to Sunday
 
+    // Helper function to get all workers for a specific day and slot
+    const getWorkersForSlot = (dayIndex, slotIndex) => {
+        const day = dayIndex.toString();
+        if (!schedule[day] || !schedule[day][slotIndex]) return [];
+
+        const workerIds = schedule[day][slotIndex].workers || [];
+        return workerIds.map(workerId => {
+            const worker = staff.find(w => w.id === workerId);
+            return worker ? worker.name : 'Unknown';
+        });
+    };
+
     return (
         <div className="final_view_container">
             <h2 className="final_view_title">Weekly Staff Schedule</h2>
-            
-            <div className="final_view_table_wrapper">
-                <div className="final_view_table_container">
-                    <table className="final_view_schedule_table">
-                        <thead>
-                            <tr>
-                                <th className="final_view_employee_header">
-                                    NAME OF<br />EMPLOYEE
-                                </th>
-                                {dayOrder.map((dayIndex, index) => (
-                                    <th key={`header-${dayIndex}`} className="final_view_day_header">
-                                        {getDayName(dayIndex)}
-                                        <br />
-                                        {currentWeek[index] ? formatDate(currentWeek[index]) : ''}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {staff.map(worker => (
-                                <tr key={`worker-row-${worker.id}`}>
-                                    <td className="final_view_employee_name">{worker.name}</td>
-                                    {dayOrder.map((dayIndex) => {
-                                        const shift = getWorkerShiftForDay(worker.id, dayIndex);
-                                        return (
-                                            <td 
-                                                key={`shift-${worker.id}-${dayIndex}`}
-                                                className={`final_view_shift_cell ${shift ? 'final_view_has_shift' : ''}`}
-                                            >
-                                                {shift || ''}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+
+            {/* View Toggle */}
+            <div className="final_view_toggle_container">
+                <button
+                    className={`final_view_toggle_button ${viewMode === 'table' ? 'active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                >
+                    Table View
+                </button>
+                <button
+                    className={`final_view_toggle_button ${viewMode === 'timeslot' ? 'active' : ''}`}
+                    onClick={() => setViewMode('timeslot')}
+                >
+                    Time Slot View
+                </button>
             </div>
+
+            {/* Table View - First format (existing) */}
+            {viewMode === 'table' && (
+                <div className="final_view_table_wrapper">
+                    <div className="final_view_table_container">
+                        <table className="final_view_schedule_table">
+                            <thead>
+                                <tr>
+                                    <th className="final_view_employee_header">
+                                        NAME OF<br />EMPLOYEE
+                                    </th>
+                                    {dayOrder.map((dayIndex, index) => (
+                                        <th key={`header-${dayIndex}`} className="final_view_day_header">
+                                            {getDayName(dayIndex)}
+                                            <br />
+                                            {currentWeek[index] ? formatDate(currentWeek[index]) : ''}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {staff.map(worker => (
+                                    <tr key={`worker-row-${worker.id}`}>
+                                        <td className="final_view_employee_name">{worker.name}</td>
+                                        {dayOrder.map((dayIndex) => {
+                                            const shift = getWorkerShiftForDay(worker.id, dayIndex);
+                                            return (
+                                                <td
+                                                    key={`shift-${worker.id}-${dayIndex}`}
+                                                    className={`final_view_shift_cell ${shift ? 'final_view_has_shift' : ''}`}
+                                                >
+                                                    {shift || ''}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Time Slot View - Second format (like Custom schedule creator) */}
+            {viewMode === 'timeslot' && (
+                <div className="final_view_timeslot_wrapper">
+                    <div className="final_view_timeslot_container">
+                        <div className="final_view_timeslot_grid">
+                            {/* Header Row */}
+                            <div className="final_view_timeslot_header_row">
+                                <div className="final_view_timeslot_time_header">TIME SLOT</div>
+                                {dayOrder.map((dayIndex, index) => (
+                                    <div key={`ts-header-${dayIndex}`} className="final_view_timeslot_day_header">
+                                        <div className="final_view_timeslot_day_name">{getDayName(dayIndex)}</div>
+                                        <div className="final_view_timeslot_day_date">
+                                            {currentWeek[index] ? formatDate(currentWeek[index]) : ''}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Time Slot Rows */}
+                            {timeSlots.length === 0 ? (
+                                <div className="final_view_timeslot_empty">
+                                    No time slots available
+                                </div>
+                            ) : (
+                                <div className="final_view_timeslot_rows">
+                                    {timeSlots.map((slot, slotIndex) => (
+                                        <div key={`ts-row-${slotIndex}`} className="final_view_timeslot_row">
+                                            <div className="final_view_timeslot_label">
+                                                {slot.label}
+                                            </div>
+
+                                            {dayOrder.map((dayIndex) => {
+                                                const workers = getWorkersForSlot(dayIndex, slotIndex);
+                                                return (
+                                                    <div
+                                                        key={`ts-cell-${dayIndex}-${slotIndex}`}
+                                                        className={`final_view_timeslot_cell ${workers.length > 0 ? 'has_workers' : ''}`}
+                                                    >
+                                                        {workers.length > 0 ? (
+                                                            <div className="final_view_timeslot_workers">
+                                                                {workers.map((name, i) => (
+                                                                    <div key={`worker-${i}`} className="final_view_timeslot_worker_name">
+                                                                        {name}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="final_view_timeslot_empty_cell">-</div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             
             <div className="final_view_footer">
                 <p className="final_view_update_text">Last updated: {new Date().toLocaleDateString()}</p>

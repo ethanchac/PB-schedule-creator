@@ -63,8 +63,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 0;
+  padding: 15px 12px;
   border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+  margin: 0 -12px;
+}
+
+.staff-item:hover {
+  background-color: #f8f9fa;
+}
+
+.staff-item.selected {
+  background-color: #e3f2fd;
+  border-left: 4px solid #4a90e2;
 }
 
 .staff-item:last-child {

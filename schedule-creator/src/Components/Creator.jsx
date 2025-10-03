@@ -11,7 +11,7 @@ import {
 } from '../services/databaseService';
 import Popup from './Popup';
 
-function Creator() {
+function Creator({ selectedWorker, onSelectWorker }) {
     const [staff, setStaff] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -326,11 +326,18 @@ function Creator() {
         <div className="staff-list">
           {staff.length > 0 ? (
             staff.map(person => (
-              <div key={person.id} className="staff-item">
+              <div
+                key={person.id}
+                className={`staff-item ${selectedWorker?.id === person.id ? 'selected' : ''}`}
+                onClick={() => onSelectWorker(selectedWorker?.id === person.id ? null : person)}
+              >
                 <div className="staff-name">{person.name}</div>
-                <button 
+                <button
                   className="availability-button"
-                  onClick={() => handleEditAvailability(person)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditAvailability(person);
+                  }}
                 >
                   Availability
                 </button>
